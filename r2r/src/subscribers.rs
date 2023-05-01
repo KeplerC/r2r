@@ -34,7 +34,7 @@ where
 pub struct UntypedSubscriber {
     pub rcl_handle: rcl_subscription_t,
     pub topic_type: String,
-    pub sender: mpsc::Sender<Result<Vec<u8>>>,
+    pub sender: mpsc::Sender<Vec<u8>>,
 }
 
 impl<T: 'static> Subscriber_ for TypedSubscriber<T>
@@ -171,7 +171,7 @@ impl Subscriber_ for UntypedSubscriber {
         };
         if ret == RCL_RET_OK as i32 {
             let json = msg.to_binary();
-            if let Err(e) = self.sender.try_send(Ok(json)) {
+            if let Err(e) = self.sender.try_send(json) {
                 if e.is_disconnected() {
                     // user dropped the handle to the stream, signal removal.
                     return true;

@@ -8,6 +8,7 @@ use std::boxed::Box;
 use std::convert::TryInto;
 use std::fmt::Debug;
 use std::ops::{Deref, DerefMut};
+use std::sync::Arc;
 
 pub mod generated_msgs {
     #![allow(clippy::all)]
@@ -136,11 +137,11 @@ pub struct WrappedNativeMsgUntyped {
     ) -> std::result::Result<(), serde_json::error::Error>,
     msg_to_bin: fn(
         native: *const std::os::raw::c_void,
-    ) -> std::result::Result<serde_json::Value, serde_json::error::Error>,
+    ) -> Vec<u8>, 
     msg_from_bin: fn(
         native: *mut std::os::raw::c_void,
-        bin: serde_json::Value,
-    ) -> std::result::Result<(), serde_json::error::Error>,
+        bin: Vec<u8>,
+    ),
 }
 
 unsafe impl Send for UntypedServiceSupport {}
@@ -317,13 +318,14 @@ impl WrappedNativeMsgUntyped {
 
         let msg_to_bin = |native: *const std::os::raw::c_void| {
             let msg = unsafe { T::from_native(&*(native as *const T::CStruct)) };
-            serde_json::to_value(&msg)
+            // serde_json::to_value(&msg)
+            bincode::serialize(&msg).unwrap()
         };
 
-        let msg_from_bin = |native: *mut std::os::raw::c_void, json: serde_json::Value| {
-            serde_json::from_value(json).map(|msg: T| unsafe {
+        let msg_from_bin = |native: *mut std::os::raw::c_void, binary: Vec<u8>| {
+            bincode::deserialize(binary.as_ref()).map(|msg: T| unsafe {
                 msg.copy_to_native(&mut *(native as *mut T::CStruct));
-            })
+            });
         };
 
         WrappedNativeMsgUntyped {
@@ -351,18 +353,14 @@ impl WrappedNativeMsgUntyped {
     }
 
     pub fn to_binary(&self) -> Vec<u8> {
-        let json = (self.msg_to_bin)(self.msg);
+        (self.msg_to_bin)(self.msg)
         // json.map_err(|serde_err| Error::SerdeError {
         //     err: serde_err.to_string(),
         // })
-        json.unwrap().to_string().into_bytes()
-       
     }
 
-    pub fn from_binary(&self, json: serde_json::Value) -> Result<()> {
-        (self.msg_from_bin)(self.msg, json).map_err(|serde_err| Error::SerdeError {
-            err: serde_err.to_string(),
-        })
+    pub fn from_binary(&self, json: Vec<u8>) {
+        (self.msg_from_bin)(self.msg, json);
     }
 }
 

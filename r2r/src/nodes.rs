@@ -343,11 +343,11 @@ impl Node {
         topic: &str,
         topic_type: &str,
         qos_profile: QosProfile,
-    ) -> Result<impl Stream<Item = Result< Vec<u8> >> + Unpin> {
+    ) -> Result<impl Stream<Item =  Vec<u8> > + Unpin> {
         let msg = WrappedNativeMsgUntyped::new_from(topic_type)?;
         let subscription_handle =
             create_subscription_helper(self.node_handle.as_mut(), topic, msg.ts, qos_profile)?;
-        let (sender, receiver) = mpsc::channel::<Result<Vec<u8>>>(10);
+        let (sender, receiver) = mpsc::channel::<Vec<u8>>(10);
 
         let ws = UntypedSubscriber {
             rcl_handle: subscription_handle,
