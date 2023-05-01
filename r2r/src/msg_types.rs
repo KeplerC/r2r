@@ -350,11 +350,13 @@ impl WrappedNativeMsgUntyped {
         })
     }
 
-    pub fn to_binary(&self) -> Result<serde_json::Value> {
+    pub fn to_binary(&self) -> Vec<u8> {
         let json = (self.msg_to_bin)(self.msg);
-        json.map_err(|serde_err| Error::SerdeError {
-            err: serde_err.to_string(),
-        })
+        // json.map_err(|serde_err| Error::SerdeError {
+        //     err: serde_err.to_string(),
+        // })
+        json.unwrap().to_string().into_bytes()
+       
     }
 
     pub fn from_binary(&self, json: serde_json::Value) -> Result<()> {
