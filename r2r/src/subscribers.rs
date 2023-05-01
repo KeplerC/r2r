@@ -170,7 +170,7 @@ impl Subscriber_ for UntypedSubscriber {
             )
         };
         if ret == RCL_RET_OK as i32 {
-            let json = msg.to_json();
+            let json = msg.to_binary();
             if let Err(e) = self.sender.try_send(json) {
                 if e.is_disconnected() {
                     // user dropped the handle to the stream, signal removal.

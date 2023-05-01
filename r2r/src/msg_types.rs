@@ -134,6 +134,13 @@ pub struct WrappedNativeMsgUntyped {
         native: *mut std::os::raw::c_void,
         json: serde_json::Value,
     ) -> std::result::Result<(), serde_json::error::Error>,
+    msg_to_bin: fn(
+        native: *const std::os::raw::c_void,
+    ) -> std::result::Result<serde_json::Value, serde_json::error::Error>,
+    msg_from_bin: fn(
+        native: *mut std::os::raw::c_void,
+        bin: serde_json::Value,
+    ) -> std::result::Result<(), serde_json::error::Error>,
 }
 
 unsafe impl Send for UntypedServiceSupport {}
@@ -308,12 +315,25 @@ impl WrappedNativeMsgUntyped {
             })
         };
 
+        let msg_to_bin = |native: *const std::os::raw::c_void| {
+            let msg = unsafe { T::from_native(&*(native as *const T::CStruct)) };
+            serde_json::to_value(&msg)
+        };
+
+        let msg_from_bin = |native: *mut std::os::raw::c_void, json: serde_json::Value| {
+            serde_json::from_value(json).map(|msg: T| unsafe {
+                msg.copy_to_native(&mut *(native as *mut T::CStruct));
+            })
+        };
+
         WrappedNativeMsgUntyped {
             ts: T::get_ts(),
             msg: T::create_msg() as *mut std::os::raw::c_void,
             destroy,
             msg_to_json,
             msg_from_json,
+            msg_to_bin,
+            msg_from_bin,
         }
     }
 
@@ -326,6 +346,19 @@ impl WrappedNativeMsgUntyped {
 
     pub fn from_json(&self, json: serde_json::Value) -> Result<()> {
         (self.msg_from_json)(self.msg, json).map_err(|serde_err| Error::SerdeError {
+            err: serde_err.to_string(),
+        })
+    }
+
+    pub fn to_binary(&self) -> Result<serde_json::Value> {
+        let json = (self.msg_to_bin)(self.msg);
+        json.map_err(|serde_err| Error::SerdeError {
+            err: serde_err.to_string(),
+        })
+    }
+
+    pub fn from_binary(&self, json: serde_json::Value) -> Result<()> {
+        (self.msg_from_bin)(self.msg, json).map_err(|serde_err| Error::SerdeError {
             err: serde_err.to_string(),
         })
     }

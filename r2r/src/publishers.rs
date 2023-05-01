@@ -115,7 +115,7 @@ impl PublisherUntyped {
             .ok_or(Error::RCL_RET_PUBLISHER_INVALID)?;
 
         let native_msg = WrappedNativeMsgUntyped::new_from(&self.type_)?;
-        native_msg.from_json(msg)?;
+        native_msg.from_binary(msg)?;
 
         let result = unsafe {
             rcl_publish(
