@@ -46,7 +46,7 @@ where
 pub struct UntypedServiceRequest
 {
     pub message: serde_json::Value,
-    request_id: rmw_request_id_t,
+    pub request_id: rmw_request_id_t,
     service: Weak<Mutex<dyn Service_>>,
 }
 
