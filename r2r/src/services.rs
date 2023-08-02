@@ -139,6 +139,7 @@ where
 pub struct UnTypedService
 {
     pub rcl_handle: rcl_service_t,
+    pub service_type: String,
     pub sender: mpsc::Sender<UntypedServiceRequest>,
     pub outstanding_requests: Vec<oneshot::Receiver<(rmw_request_id_t, serde_json::Value)>>,
 }
@@ -154,7 +155,6 @@ impl Service_ for UnTypedService
         &mut self, mut request_id: rmw_request_id_t, mut msg: Box<dyn VoidPtr>,
     ) -> Result<()> {
 
-        println!("helloooooo");
         let res =
             unsafe { rcl_send_response(&self.rcl_handle, &mut request_id, msg.void_ptr_mut()) };
         if res == RCL_RET_OK as i32 {
@@ -165,9 +165,8 @@ impl Service_ for UnTypedService
     }
 
     fn handle_request(&mut self, service: Arc<Mutex<dyn Service_>>) -> bool {
-        println!("helloooooo");
         let mut request_id = MaybeUninit::<rmw_request_id_t>::uninit();
-        let mut request_msg = (UntypedServiceSupport::new_from("example_interfaces/srv/AddTwoInts").unwrap().make_request_msg)();
+        let mut request_msg = (UntypedServiceSupport::new_from(self.service_type.as_str()).unwrap().make_request_msg)();
 
         let ret = unsafe {
             rcl_take_request(&self.rcl_handle, request_id.as_mut_ptr(), request_msg.void_ptr_mut())
