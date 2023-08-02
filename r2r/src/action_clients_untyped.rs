@@ -153,7 +153,7 @@ impl ActionClientUntyped {
                 });
             Ok(future)
         } else {
-            eprintln!("coult not send goal request {}", result);
+            log::error!("could not send goal request {}", result);
             Err(Error::from_rcl_error(result))
         }
     }
@@ -165,10 +165,7 @@ pub fn make_action_client_untyped(
     ActionClientUntyped { client }
 }
 
-pub type ResultSender = (
-    uuid::Uuid,
-    oneshot::Sender<(GoalStatus, Result<serde_json::Value>)>,
-);
+pub type ResultSender = (uuid::Uuid, oneshot::Sender<(GoalStatus, Result<serde_json::Value>)>);
 pub struct WrappedActionClientUntyped {
     pub action_type_support: UntypedActionSupport,
     pub rcl_handle: rcl_action_client_t,
@@ -189,8 +186,7 @@ impl WrappedActionClientUntyped {
     }
 
     pub fn send_cancel_request(
-        &mut self,
-        goal: &uuid::Uuid,
+        &mut self, goal: &uuid::Uuid,
     ) -> Result<impl Future<Output = Result<()>>> {
         let msg = action_msgs::srv::CancelGoal::Request {
             goal_info: action_msgs::msg::GoalInfo {
@@ -217,17 +213,31 @@ impl WrappedActionClientUntyped {
                 .map_err(|_| Error::RCL_RET_CLIENT_INVALID)
                 .map(|r| match r {
                     Ok(r) => match r.return_code {
-                        0 => Ok(()),
-                        1 => Err(Error::GoalCancelRejected),
-                        2 => Err(Error::GoalCancelUnknownGoalID),
-                        3 => Err(Error::GoalCancelAlreadyTerminated),
+                        e if e == action_msgs::srv::CancelGoal::Response::ERROR_NONE as i8 => {
+                            Ok(())
+                        }
+                        e if e == action_msgs::srv::CancelGoal::Response::ERROR_REJECTED as i8 => {
+                            Err(Error::GoalCancelRejected)
+                        }
+                        e if e
+                            == action_msgs::srv::CancelGoal::Response::ERROR_UNKNOWN_GOAL_ID
+                                as i8 =>
+                        {
+                            Err(Error::GoalCancelUnknownGoalID)
+                        }
+                        e if e
+                            == action_msgs::srv::CancelGoal::Response::ERROR_GOAL_TERMINATED
+                                as i8 =>
+                        {
+                            Err(Error::GoalCancelAlreadyTerminated)
+                        }
                         x => panic!("unknown error code return from action server: {}", x),
                     },
                     Err(e) => Err(e),
                 });
             Ok(future)
         } else {
-            eprintln!("coult not send goal request {}", result);
+            log::error!("could not send goal request {}", result);
             Err(Error::from_rcl_error(result))
         }
     }
@@ -262,7 +272,7 @@ impl ActionClient_ for WrappedActionClientUntyped {
                 match sender.send((accept, stamp)) {
                     Ok(()) => {}
                     Err(e) => {
-                        println!("error sending to action client: {:?}", e);
+                        log::debug!("error sending to action client: {:?}", e);
                     }
                 }
             } else {
@@ -272,9 +282,10 @@ impl ActionClient_ for WrappedActionClientUntyped {
                     .map(|(id, _)| id.to_string())
                     .collect::<Vec<_>>()
                     .join(",");
-                eprintln!(
+                log::error!(
                     "no such req id: {}, we have [{}], ignoring",
-                    request_id.sequence_number, we_have
+                    request_id.sequence_number,
+                    we_have
                 );
             }
         }
@@ -301,7 +312,7 @@ impl ActionClient_ for WrappedActionClientUntyped {
                 let (_, sender) = self.cancel_response_channels.swap_remove(idx);
                 let response = action_msgs::srv::CancelGoal::Response::from_native(&response_msg);
                 if let Err(e) = sender.send(response) {
-                    eprintln!("warning: could not send cancel response msg ({:?})", e)
+                    log::error!("warning: could not send cancel response msg ({:?})", e)
                 }
             } else {
                 let we_have: String = self
@@ -310,9 +321,10 @@ impl ActionClient_ for WrappedActionClientUntyped {
                     .map(|(id, _)| id.to_string())
                     .collect::<Vec<_>>()
                     .join(",");
-                eprintln!(
+                log::error!(
                     "no such req id: {}, we have [{}], ignoring",
-                    request_id.sequence_number, we_have
+                    request_id.sequence_number,
+                    we_have
                 );
             }
         }
@@ -332,7 +344,7 @@ impl ActionClient_ for WrappedActionClientUntyped {
                 .find(|(uuid, _)| uuid == &msg_uuid)
             {
                 if let Err(e) = sender.try_send(feedback) {
-                    eprintln!("warning: could not send feedback msg ({})", e)
+                    log::error!("warning: could not send feedback msg ({})", e)
                 }
             }
         }
@@ -385,7 +397,7 @@ impl ActionClient_ for WrappedActionClientUntyped {
                     match sender.send((status, result)) {
                         Ok(()) => {}
                         Err(e) => {
-                            println!("error sending result to action client: {:?}", e);
+                            log::debug!("error sending result to action client: {:?}", e);
                         }
                     }
                 }
@@ -396,9 +408,10 @@ impl ActionClient_ for WrappedActionClientUntyped {
                     .map(|(id, _)| id.to_string())
                     .collect::<Vec<_>>()
                     .join(",");
-                eprintln!(
+                log::error!(
                     "no such req id: {}, we have [{}], ignoring",
-                    request_id.sequence_number, we_have
+                    request_id.sequence_number,
+                    we_have
                 );
             }
         }
@@ -417,7 +430,7 @@ impl ActionClient_ for WrappedActionClientUntyped {
         if result == RCL_RET_OK as i32 {
             self.result_requests.push((seq_no, uuid));
         } else {
-            eprintln!("coult not send request {}", result);
+            log::error!("could not send request {}", result);
         }
     }
 

@@ -1,34 +1,59 @@
-use std::fs::{File, OpenOptions};
-use std::io::Write;
+#[cfg(not(feature = "doc-only"))]
+use {
+    quote::{format_ident, quote},
+    rayon::prelude::*,
+    std::fmt,
+    std::fs::{File, OpenOptions},
+    std::io::{self, prelude::*, BufWriter},
+};
+
 use std::path::{Path, PathBuf};
 use std::{env, fs};
 
-const LIST_FILENAME: &str = "files.txt";
-const MSGS_FILENAME: &str = "_r2r_generated_msgs.rs";
-const UNTYPED_FILENAME: &str = "_r2r_generated_untyped_helper.rs";
-const UNTYPED_SERVICE_FILENAME: &str = "_r2r_generated_service_helper.rs";
-const UNTYPED_ACTION_FILENAME: &str = "_r2r_generated_action_helper.rs";
-const GENERATED_FILES: &[&str] = &[
-    MSGS_FILENAME,
-    UNTYPED_FILENAME,
-    UNTYPED_SERVICE_FILENAME,
-    UNTYPED_ACTION_FILENAME,
-];
+#[cfg(feature = "doc-only")]
+mod filenames {
+    pub const LIST_FILENAME: &str = "files.txt";
+}
+
+#[cfg(not(feature = "doc-only"))]
+mod filenames {
+    pub const LIST_FILENAME: &str = "files.txt";
+    pub const MSGS_FILENAME: &str = "_r2r_generated_msgs.rs";
+    pub const UNTYPED_FILENAME: &str = "_r2r_generated_untyped_helper.rs";
+    pub const UNTYPED_SERVICE_FILENAME: &str = "_r2r_generated_service_helper.rs";
+    pub const UNTYPED_ACTION_FILENAME: &str = "_r2r_generated_action_helper.rs";
+    pub const GENERATED_FILES: &[&str] = &[
+        MSGS_FILENAME,
+        UNTYPED_FILENAME,
+        UNTYPED_SERVICE_FILENAME,
+        UNTYPED_ACTION_FILENAME,
+    ];
+}
+
+use filenames::*;
 
 fn main() {
     r2r_common::print_cargo_watches();
+    r2r_common::print_cargo_ros_distro();
 
-    let env_hash = r2r_common::get_env_hash();
     let out_dir = PathBuf::from(env::var_os("OUT_DIR").unwrap());
-    let manifest_dir = Path::new(env!("CARGO_MANIFEST_DIR"));
-    let bindgen_dir = out_dir.join(env_hash);
-    let save_dir = manifest_dir.join("bindings");
-    let mark_file = bindgen_dir.join("done");
 
-    if cfg!(feature = "doc-only") {
+    #[cfg(any(feature = "doc-only", feature = "save-bindgen"))]
+    let manifest_dir = Path::new(env!("CARGO_MANIFEST_DIR"));
+    #[cfg(any(feature = "doc-only", feature = "save-bindgen"))]
+    let save_dir = manifest_dir.join("bindings");
+
+    #[cfg(feature = "doc-only")]
+    {
         // If "doc-only" feature is present, copy from $crate/bindings/* to OUT_DIR
         copy_files(&save_dir, &out_dir);
-    } else {
+    }
+
+    #[cfg(not(feature = "doc-only"))]
+    {
+        let env_hash = r2r_common::get_env_hash();
+        let bindgen_dir = out_dir.join(env_hash);
+        let mark_file = bindgen_dir.join("done");
         // If bindgen was done before, use cached files.
         if !mark_file.exists() {
             eprintln!("Generate bindings in '{}'", bindgen_dir.display());
@@ -48,107 +73,175 @@ fn main() {
     }
 }
 
+#[cfg(not(feature = "doc-only"))]
 fn generate_bindings(bindgen_dir: &Path) {
-    fs::create_dir_all(&bindgen_dir).unwrap();
+    fs::create_dir_all(bindgen_dir).unwrap();
 
     let msg_list = r2r_common::get_wanted_messages();
     let msgs = r2r_common::as_map(&msg_list);
 
-    let mut modules = String::new();
+    {
+        let modules = {
+            let mut modules: Vec<_> = msgs
+                .par_iter()
+                .map(|(module, _)| {
+                    let path_suffix = format!("/{module}.rs");
+                    let module_ident = format_ident!("{module}");
+                    let tokens = quote! {
+                        pub mod #module_ident {
+                            include!(concat!(env!("OUT_DIR"), #path_suffix));
+                        }
+                    };
+                    (module, unsafe { force_send(tokens) })
+                })
+                .collect();
+            modules.par_sort_unstable_by_key(|(module, _)| *module);
+            let modules = modules.into_iter().map(|(_, tokens)| tokens.unwrap());
+
+            quote! { #(#modules)* }
+        };
+
+        let msgs_file = bindgen_dir.join(MSGS_FILENAME);
+        write_to_file(&msgs_file, &pretty_tokenstream(modules)).unwrap();
+    }
+
     let mod_files: Vec<_> = msgs
-        .iter()
+        .par_iter()
         .map(|(module, prefixes)| {
-            let mod_text = format!(
-                r#"pub mod {module}{{include!(concat!(env!("OUT_DIR"), "/{module}.rs"));}}{lf}"#,
-                module = module,
-                lf = "\n"
-            );
-            modules.push_str(&mod_text);
+            let snipplets: Vec<_> = prefixes
+                .into_par_iter()
+                .map(|(prefix, msgs)| {
+                    let prefix_content = match *prefix {
+                        "msg" => {
+                            let msg_snipplets = msgs.into_iter().map(|msg| {
+                                println!("cargo:rustc-cfg=r2r__{}__{}__{}", module, prefix, msg);
+                                r2r_msg_gen::generate_rust_msg(module, prefix, msg)
+                            });
 
-            let mut codegen = String::new();
-
-            prefixes.into_iter().for_each(|(prefix, msgs)| {
-                codegen.push_str(&format!("  pub mod {} {{\n", prefix));
-
-                if prefix == &"action" {
-                    for msg in msgs {
-                        codegen.push_str("#[allow(non_snake_case)]\n");
-                        codegen.push_str(&format!("    pub mod {} {{\n", msg));
-                        codegen.push_str("    use super::super::super::*;\n");
-
-                        codegen.push_str(&r2r_msg_gen::generate_rust_action(module, prefix, msg));
-
-                        for s in &["Goal", "Result", "Feedback"] {
-                            let msgname = format!("{}_{}", msg, s);
-                            codegen.push_str(&r2r_msg_gen::generate_rust_msg(
-                                module, prefix, &msgname,
-                            ));
-                            println!("cargo:rustc-cfg=r2r__{}__{}__{}", module, prefix, msg);
-                        }
-
-                        // "internal" services that implements the action type
-                        for srv in &["SendGoal", "GetResult"] {
-                            codegen.push_str("#[allow(non_snake_case)]\n");
-                            codegen.push_str(&format!("    pub mod {} {{\n", srv));
-                            codegen.push_str("    use super::super::super::super::*;\n");
-
-                            let srvname = format!("{}_{}", msg, srv);
-                            codegen.push_str(&r2r_msg_gen::generate_rust_service(
-                                module, prefix, &srvname,
-                            ));
-
-                            for s in &["Request", "Response"] {
-                                let msgname = format!("{}_{}_{}", msg, srv, s);
-                                codegen.push_str(&r2r_msg_gen::generate_rust_msg(
-                                    module, prefix, &msgname,
-                                ));
+                            quote! {
+                                use super::super::*;
+                                #(#msg_snipplets)*
                             }
-                            codegen.push_str("    }\n");
                         }
+                        "srv" => {
+                            let msg_snipplets = msgs.into_iter().map(|msg| {
+                                let service_snipplet =
+                                    r2r_msg_gen::generate_rust_service(module, prefix, msg);
+                                let msg_snipplets = ["Request", "Response"].iter().map(|s| {
+                                    let msgname = format!("{}_{}", msg, s);
+                                    println!(
+                                        "cargo:rustc-cfg=r2r__{}__{}__{}",
+                                        module, prefix, msg
+                                    );
+                                    r2r_msg_gen::generate_rust_msg(module, prefix, &msgname)
+                                });
+                                let msg = format_ident!("{msg}");
 
-                        // also "internal" feedback message type that wraps the feedback type with a uuid
-                        let feedback_msgname = format!("{}_FeedbackMessage", msg);
-                        codegen.push_str(&r2r_msg_gen::generate_rust_msg(
-                            module,
-                            prefix,
-                            &feedback_msgname,
-                        ));
+                                quote! {
+                                    #[allow(non_snake_case)]
+                                    pub mod #msg {
+                                        use super::super::super::*;
 
-                        codegen.push_str("    }\n");
-                    }
-                } else if prefix == &"srv" {
-                    for msg in msgs {
-                        codegen.push_str("#[allow(non_snake_case)]\n");
-                        codegen.push_str(&format!("    pub mod {} {{\n", msg));
-                        codegen.push_str("    use super::super::super::*;\n");
-
-                        codegen.push_str(&r2r_msg_gen::generate_rust_service(module, prefix, msg));
-
-                        for s in &["Request", "Response"] {
-                            let msgname = format!("{}_{}", msg, s);
-                            codegen.push_str(&r2r_msg_gen::generate_rust_msg(
-                                module, prefix, &msgname,
-                            ));
-                            println!("cargo:rustc-cfg=r2r__{}__{}__{}", module, prefix, msg);
+                                        #service_snipplet
+                                        #(#msg_snipplets)*
+                                    }
+                                }
+                            });
+                            quote! {
+                                #(#msg_snipplets)*
+                            }
                         }
-                        codegen.push_str("    }\n");
-                    }
-                } else if prefix == &"msg" {
-                    codegen.push_str("    use super::super::*;\n");
-                    for msg in msgs {
-                        codegen.push_str(&r2r_msg_gen::generate_rust_msg(module, prefix, msg));
-                        println!("cargo:rustc-cfg=r2r__{}__{}__{}", module, prefix, msg);
-                    }
-                } else {
-                    panic!("unknown prefix type: {}", prefix);
-                }
+                        "action" => {
+                            let msg_snipplets = msgs.into_iter().map(|msg| {
+                                let action_snipplet =
+                                    r2r_msg_gen::generate_rust_action(module, prefix, msg);
 
-                codegen.push_str("  }\n");
-            });
+                                let msg_snipplets =
+                                    ["Goal", "Result", "Feedback"].iter().map(|s| {
+                                        let msgname = format!("{}_{}", msg, s);
+                                        println!(
+                                            "cargo:rustc-cfg=r2r__{}__{}__{}",
+                                            module, prefix, msg
+                                        );
+                                        r2r_msg_gen::generate_rust_msg(module, prefix, &msgname)
+                                    });
 
+                                // "internal" services that implements the action type
+                                let service_snipplets =
+                                    ["SendGoal", "GetResult"].iter().map(|srv| {
+                                        let srvname = format!("{}_{}", msg, srv);
+                                        let service_snipplet = r2r_msg_gen::generate_rust_service(
+                                            module, prefix, &srvname,
+                                        );
+
+                                        let msg_snipplets =
+                                            ["Request", "Response"].iter().map(|s| {
+                                                let msgname = format!("{}_{}_{}", msg, srv, s);
+                                                r2r_msg_gen::generate_rust_msg(
+                                                    module, prefix, &msgname,
+                                                )
+                                            });
+
+                                        let srv = format_ident!("{srv}");
+                                        quote! {
+                                            #[allow(non_snake_case)]
+                                            pub mod #srv {
+                                                use super::super::super::super::*;
+
+                                                #service_snipplet
+                                                #(#msg_snipplets)*
+                                            }
+                                        }
+                                    });
+
+                                // also "internal" feedback message type that wraps the feedback type with a uuid
+                                let feedback_msgname = format!("{}_FeedbackMessage", msg);
+                                let feedback_msg_snipplet = r2r_msg_gen::generate_rust_msg(
+                                    module,
+                                    prefix,
+                                    &feedback_msgname,
+                                );
+
+                                let msg = format_ident!("{msg}");
+                                quote! {
+                                    #[allow(non_snake_case)]
+                                    pub mod #msg {
+                                        use super::super::super::*;
+
+                                        #action_snipplet
+                                        #(#msg_snipplets)*
+                                        #(#service_snipplets)*
+                                        #feedback_msg_snipplet
+                                    }
+                                }
+                            });
+
+                            quote! {
+                                #(#msg_snipplets)*
+                            }
+                        }
+                        _ => {
+                            panic!("unknown prefix type: {}", prefix);
+                        }
+                    };
+
+                    let prefix = format_ident!("{prefix}");
+
+                    let mod_content = quote! {
+                        pub mod #prefix {
+                            #prefix_content
+                        }
+                    };
+
+                    unsafe { force_send(mod_content) }
+                })
+                .collect();
+
+            let snipplets = snipplets.into_iter().map(|snipplet| snipplet.unwrap());
+            let mod_content = quote! { #(#snipplets)* };
             let file_name = format!("{}.rs", module);
             let mod_file = bindgen_dir.join(&file_name);
-            fs::write(&mod_file, codegen).unwrap();
+            write_to_file(&mod_file, &pretty_tokenstream(mod_content)).unwrap();
 
             file_name
         })
@@ -157,24 +250,26 @@ fn generate_bindings(bindgen_dir: &Path) {
     // Write helper files
     {
         let untyped_helper = r2r_msg_gen::generate_untyped_helper(&msg_list);
-        let untyped_service_helper = r2r_msg_gen::generate_untyped_service_helper(&msg_list);
-        let untyped_action_helper = r2r_msg_gen::generate_untyped_action_helper(&msg_list);
-
-        let msgs_file = bindgen_dir.join(MSGS_FILENAME);
         let untyped_file = bindgen_dir.join(UNTYPED_FILENAME);
-        let untyped_service_file = bindgen_dir.join(UNTYPED_SERVICE_FILENAME);
-        let untyped_action_file = bindgen_dir.join(UNTYPED_ACTION_FILENAME);
+        write_to_file(&untyped_file, &pretty_tokenstream(untyped_helper)).unwrap();
+    }
 
-        fs::write(&msgs_file, &modules).unwrap();
-        fs::write(&untyped_file, &untyped_helper).unwrap();
-        fs::write(&untyped_service_file, &untyped_service_helper).unwrap();
-        fs::write(&untyped_action_file, &untyped_action_helper).unwrap();
+    {
+        let untyped_service_helper = r2r_msg_gen::generate_untyped_service_helper(&msg_list);
+        let untyped_service_file = bindgen_dir.join(UNTYPED_SERVICE_FILENAME);
+        write_to_file(&untyped_service_file, &pretty_tokenstream(untyped_service_helper)).unwrap();
+    }
+
+    {
+        let untyped_action_helper = r2r_msg_gen::generate_untyped_action_helper(&msg_list);
+        let untyped_action_file = bindgen_dir.join(UNTYPED_ACTION_FILENAME);
+        write_to_file(&untyped_action_file, &pretty_tokenstream(untyped_action_helper)).unwrap();
     }
 
     // Save file list
     {
         let list_file = bindgen_dir.join(LIST_FILENAME);
-        let mut writer = File::create(list_file).unwrap();
+        let mut writer = BufWriter::new(File::create(list_file).unwrap());
 
         for file_name in mod_files {
             writeln!(writer, "{}", file_name).unwrap();
@@ -187,11 +282,7 @@ fn generate_bindings(bindgen_dir: &Path) {
 }
 
 fn copy_files(src_dir: &Path, tgt_dir: &Path) {
-    eprintln!(
-        "Copy files from '{}' to '{}'",
-        src_dir.display(),
-        tgt_dir.display()
-    );
+    eprintln!("Copy files from '{}' to '{}'", src_dir.display(), tgt_dir.display());
 
     let src_list_file = src_dir.join(LIST_FILENAME);
     let tgt_list_file = tgt_dir.join(LIST_FILENAME);
@@ -207,10 +298,29 @@ fn copy_files(src_dir: &Path, tgt_dir: &Path) {
     fs::copy(&src_list_file, &tgt_list_file).unwrap();
 }
 
+#[cfg(not(feature = "doc-only"))]
 fn touch(path: &Path) {
     OpenOptions::new()
         .create(true)
         .write(true)
         .open(path)
         .unwrap_or_else(|_| panic!("Unable to create file '{}'", path.display()));
+}
+
+#[cfg(not(feature = "doc-only"))]
+fn write_to_file(path: &Path, content: impl fmt::Display) -> io::Result<()> {
+    let mut writer = BufWriter::new(File::create(path)?);
+    write!(writer, "{}", content)?;
+    writer.flush()?;
+    Ok(())
+}
+
+#[cfg(not(feature = "doc-only"))]
+unsafe fn force_send<T>(value: T) -> force_send_sync::Send<T> {
+    force_send_sync::Send::new(value)
+}
+
+#[cfg(not(feature = "doc-only"))]
+fn pretty_tokenstream(stream: proc_macro2::TokenStream) -> String {
+    prettyplease::unparse(&syn::parse2::<syn::File>(stream).unwrap())
 }

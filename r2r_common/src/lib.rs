@@ -1,10 +1,15 @@
 use itertools::Itertools;
+use os_str_bytes::RawOsString;
 use sha2::{Digest, Sha256};
 use std::collections::HashMap;
 use std::env;
 use std::fs::{self, File};
 use std::io::Read;
 use std::path::Path;
+use regex::*;
+
+#[cfg(not(feature = "doc-only"))]
+const SUPPORTED_ROS_DISTROS: &[&str] = &["foxy", "galactic", "humble", "rolling"];
 
 const WATCHED_ENV_VARS: &[&str] = &[
     "AMENT_PREFIX_PATH",
@@ -12,6 +17,7 @@ const WATCHED_ENV_VARS: &[&str] = &[
     "CMAKE_LIBRARIES",
     "CMAKE_IDL_PACKAGES",
     "IDL_PACKAGE_FILTER",
+    "ROS_DISTRO",
 ];
 
 pub fn get_env_hash() -> String {
@@ -55,12 +61,13 @@ pub fn setup_bindgen_builder() -> bindgen::Builder {
             println!("adding clang arg: {}", clang_arg);
             builder = builder.clang_arg(clang_arg);
         }
-    } else {
+    } else if !cfg!(feature = "doc-only") {
         let ament_prefix_var_name = "AMENT_PREFIX_PATH";
-        let ament_prefix_var = env::var(ament_prefix_var_name).expect("Source your ROS!");
+        let ament_prefix_var =
+            RawOsString::new(env::var_os(ament_prefix_var_name).expect("Source your ROS!"));
 
-        for p in ament_prefix_var.split(':') {
-            let path = Path::new(p).join("include");
+        for p in ament_prefix_var.split(":") {
+            let path = Path::new(&p.to_os_str()).join("include");
 
             let entries = std::fs::read_dir(path.clone());
             if let Ok(e) = entries {
@@ -111,22 +118,48 @@ pub fn setup_bindgen_builder() -> bindgen::Builder {
     builder
 }
 
+#[cfg(feature = "doc-only")]
+pub fn print_cargo_ros_distro() {}
+
+#[cfg(not(feature = "doc-only"))]
+pub fn print_cargo_ros_distro() {
+    if cfg!(feature = "doc-only") {
+        return;
+    }
+
+    let ros_distro =
+        env::var("ROS_DISTRO").unwrap_or_else(|_| panic!("ROS_DISTRO not set: Source your ROS!"));
+
+    if SUPPORTED_ROS_DISTROS.contains(&ros_distro.as_str()) {
+        println!("cargo:rustc-cfg=r2r__ros__distro__{ros_distro}");
+    } else {
+        panic!("ROS_DISTRO not supported: {ros_distro}");
+    }
+}
+
 pub fn print_cargo_link_search() {
-    if env::var("CMAKE_INCLUDE_DIRS").is_ok() {
-        if let Ok(paths) = env::var("CMAKE_LIBRARIES") {
+    if env::var_os("CMAKE_INCLUDE_DIRS").is_some() {
+        if let Some(paths) = env::var_os("CMAKE_LIBRARIES") {
+            let paths = RawOsString::new(paths);
+
             paths
-                .split(':')
-                .into_iter()
+                .split(":")
                 .filter(|s| s.contains(".so") || s.contains(".dylib"))
-                .flat_map(|l| Path::new(l).parent().and_then(|p| p.to_str()))
+                .filter_map(|l| {
+                    let l = l.to_os_str();
+                    let parent = Path::new(&l).parent()?;
+                    let parent = parent.to_str()?;
+                    Some(parent.to_string())
+                })
                 .unique()
                 .for_each(|pp| println!("cargo:rustc-link-search=native={}", pp));
         }
     } else {
         let ament_prefix_var_name = "AMENT_PREFIX_PATH";
-        if let Ok(paths) = env::var(ament_prefix_var_name) {
-            for path in paths.split(':') {
-                let lib_path = Path::new(path).join("lib");
+        if let Some(paths) = env::var_os(ament_prefix_var_name) {
+            let paths = RawOsString::new(paths);
+            for path in paths.split(":") {
+                let lib_path = Path::new(&path.to_os_str()).join("lib");
                 if let Some(s) = lib_path.to_str() {
                     println!("cargo:rustc-link-search=native={}", s)
                 }
@@ -344,6 +377,20 @@ pub fn as_map(included_msgs: &[RosMsg]) -> HashMap<&str, HashMap<&str, Vec<&str>
     msgs
 }
 
+thread_local! {
+    static UPPERCASE_BEFORE: Regex = Regex::new(r"(.)([A-Z][a-z]+)").unwrap();
+    static UPPERCASE_AFTER: Regex = Regex::new(r"([a-z0-9])([A-Z])").unwrap();
+}
+
+/// camel case to to snake case adapted from from ros_idl_cmake. This
+/// is not a general "to snake case" converter, it only handles the
+/// specific case of CamelCase to snake_case that we need.
+pub fn camel_to_snake(s: &str) -> String {
+    let s = UPPERCASE_BEFORE.with(|ub| ub.replace_all(s, "${1}_${2}"));
+    let s = UPPERCASE_AFTER.with(|ua| ua.replace_all(&s, "${1}_${2}"));
+    s.to_lowercase()
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -377,9 +424,14 @@ std_msgs/msg/String
         let map = as_map(&parsed);
 
         assert_eq!(map.get("std_msgs").unwrap().get("msg").unwrap()[0], "Bool");
-        assert_eq!(
-            map.get("std_msgs").unwrap().get("msg").unwrap()[1],
-            "String"
-        );
+        assert_eq!(map.get("std_msgs").unwrap().get("msg").unwrap()[1], "String");
+    }
+
+    #[test]
+    fn test_camel_to_snake_case() {
+        assert_eq!(camel_to_snake("AB01CD02"), "ab01_cd02");
+        assert_eq!(camel_to_snake("UnboundedSequences"), "unbounded_sequences");
+        assert_eq!(camel_to_snake("BoundedPlainUnboundedSequences"), "bounded_plain_unbounded_sequences");
+        assert_eq!(camel_to_snake("WStrings"), "w_strings");
     }
 }

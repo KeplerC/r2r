@@ -1,0 +1,881 @@
+{
+    // Use IntelliSense to learn about possible attributes.
+    // Hover to view descriptions of existing attributes.
+    // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug unit tests in library 'r2r'",
+            "cargo": {
+                "args": [
+                    "test",
+                    "--no-run",
+                    "--lib",
+                    "--package=r2r"
+                ],
+                "filter": {
+                    "name": "r2r",
+                    "kind": "lib"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug example 'service'",
+            "cargo": {
+                "args": [
+                    "build",
+                    "--example=service",
+                    "--package=r2r"
+                ],
+                "filter": {
+                    "name": "service",
+                    "kind": "example"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug unit tests in example 'service'",
+            "cargo": {
+                "args": [
+                    "test",
+                    "--no-run",
+                    "--example=service",
+                    "--package=r2r"
+                ],
+                "filter": {
+                    "name": "service",
+                    "kind": "example"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug example 'subscriber'",
+            "cargo": {
+                "args": [
+                    "build",
+                    "--example=subscriber",
+                    "--package=r2r"
+                ],
+                "filter": {
+                    "name": "subscriber",
+                    "kind": "example"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug unit tests in example 'subscriber'",
+            "cargo": {
+                "args": [
+                    "test",
+                    "--no-run",
+                    "--example=subscriber",
+                    "--package=r2r"
+                ],
+                "filter": {
+                    "name": "subscriber",
+                    "kind": "example"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug example 'wall_timer'",
+            "cargo": {
+                "args": [
+                    "build",
+                    "--example=wall_timer",
+                    "--package=r2r"
+                ],
+                "filter": {
+                    "name": "wall_timer",
+                    "kind": "example"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug unit tests in example 'wall_timer'",
+            "cargo": {
+                "args": [
+                    "test",
+                    "--no-run",
+                    "--example=wall_timer",
+                    "--package=r2r"
+                ],
+                "filter": {
+                    "name": "wall_timer",
+                    "kind": "example"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug example 'tokio'",
+            "cargo": {
+                "args": [
+                    "build",
+                    "--example=tokio",
+                    "--package=r2r"
+                ],
+                "filter": {
+                    "name": "tokio",
+                    "kind": "example"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug unit tests in example 'tokio'",
+            "cargo": {
+                "args": [
+                    "test",
+                    "--no-run",
+                    "--example=tokio",
+                    "--package=r2r"
+                ],
+                "filter": {
+                    "name": "tokio",
+                    "kind": "example"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug example 'tokio_service'",
+            "cargo": {
+                "args": [
+                    "build",
+                    "--example=tokio_service",
+                    "--package=r2r"
+                ],
+                "filter": {
+                    "name": "tokio_service",
+                    "kind": "example"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug unit tests in example 'tokio_service'",
+            "cargo": {
+                "args": [
+                    "test",
+                    "--no-run",
+                    "--example=tokio_service",
+                    "--package=r2r"
+                ],
+                "filter": {
+                    "name": "tokio_service",
+                    "kind": "example"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug example 'client'",
+            "cargo": {
+                "args": [
+                    "build",
+                    "--example=client",
+                    "--package=r2r"
+                ],
+                "filter": {
+                    "name": "client",
+                    "kind": "example"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug unit tests in example 'client'",
+            "cargo": {
+                "args": [
+                    "test",
+                    "--no-run",
+                    "--example=client",
+                    "--package=r2r"
+                ],
+                "filter": {
+                    "name": "client",
+                    "kind": "example"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug example 'untyped_client'",
+            "cargo": {
+                "args": [
+                    "build",
+                    "--example=untyped_client",
+                    "--package=r2r"
+                ],
+                "filter": {
+                    "name": "untyped_client",
+                    "kind": "example"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug unit tests in example 'untyped_client'",
+            "cargo": {
+                "args": [
+                    "test",
+                    "--no-run",
+                    "--example=untyped_client",
+                    "--package=r2r"
+                ],
+                "filter": {
+                    "name": "untyped_client",
+                    "kind": "example"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug example 'rostopic_echo'",
+            "cargo": {
+                "args": [
+                    "build",
+                    "--example=rostopic_echo",
+                    "--package=r2r"
+                ],
+                "filter": {
+                    "name": "rostopic_echo",
+                    "kind": "example"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug unit tests in example 'rostopic_echo'",
+            "cargo": {
+                "args": [
+                    "test",
+                    "--no-run",
+                    "--example=rostopic_echo",
+                    "--package=r2r"
+                ],
+                "filter": {
+                    "name": "rostopic_echo",
+                    "kind": "example"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug example 'tokio_examples'",
+            "cargo": {
+                "args": [
+                    "build",
+                    "--example=tokio_examples",
+                    "--package=r2r"
+                ],
+                "filter": {
+                    "name": "tokio_examples",
+                    "kind": "example"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug unit tests in example 'tokio_examples'",
+            "cargo": {
+                "args": [
+                    "test",
+                    "--no-run",
+                    "--example=tokio_examples",
+                    "--package=r2r"
+                ],
+                "filter": {
+                    "name": "tokio_examples",
+                    "kind": "example"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug example 'publishers'",
+            "cargo": {
+                "args": [
+                    "build",
+                    "--example=publishers",
+                    "--package=r2r"
+                ],
+                "filter": {
+                    "name": "publishers",
+                    "kind": "example"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug unit tests in example 'publishers'",
+            "cargo": {
+                "args": [
+                    "test",
+                    "--no-run",
+                    "--example=publishers",
+                    "--package=r2r"
+                ],
+                "filter": {
+                    "name": "publishers",
+                    "kind": "example"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug example 'tokio_publisher'",
+            "cargo": {
+                "args": [
+                    "build",
+                    "--example=tokio_publisher",
+                    "--package=r2r"
+                ],
+                "filter": {
+                    "name": "tokio_publisher",
+                    "kind": "example"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug unit tests in example 'tokio_publisher'",
+            "cargo": {
+                "args": [
+                    "test",
+                    "--no-run",
+                    "--example=tokio_publisher",
+                    "--package=r2r"
+                ],
+                "filter": {
+                    "name": "tokio_publisher",
+                    "kind": "example"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug example 'tokio_subscriber'",
+            "cargo": {
+                "args": [
+                    "build",
+                    "--example=tokio_subscriber",
+                    "--package=r2r"
+                ],
+                "filter": {
+                    "name": "tokio_subscriber",
+                    "kind": "example"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug unit tests in example 'tokio_subscriber'",
+            "cargo": {
+                "args": [
+                    "test",
+                    "--no-run",
+                    "--example=tokio_subscriber",
+                    "--package=r2r"
+                ],
+                "filter": {
+                    "name": "tokio_subscriber",
+                    "kind": "example"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug example 'action_client_untyped'",
+            "cargo": {
+                "args": [
+                    "build",
+                    "--example=action_client_untyped",
+                    "--package=r2r"
+                ],
+                "filter": {
+                    "name": "action_client_untyped",
+                    "kind": "example"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug unit tests in example 'action_client_untyped'",
+            "cargo": {
+                "args": [
+                    "test",
+                    "--no-run",
+                    "--example=action_client_untyped",
+                    "--package=r2r"
+                ],
+                "filter": {
+                    "name": "action_client_untyped",
+                    "kind": "example"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug example 'action_server'",
+            "cargo": {
+                "args": [
+                    "build",
+                    "--example=action_server",
+                    "--package=r2r"
+                ],
+                "filter": {
+                    "name": "action_server",
+                    "kind": "example"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug unit tests in example 'action_server'",
+            "cargo": {
+                "args": [
+                    "test",
+                    "--no-run",
+                    "--example=action_server",
+                    "--package=r2r"
+                ],
+                "filter": {
+                    "name": "action_server",
+                    "kind": "example"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug example 'logging'",
+            "cargo": {
+                "args": [
+                    "build",
+                    "--example=logging",
+                    "--package=r2r"
+                ],
+                "filter": {
+                    "name": "logging",
+                    "kind": "example"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug unit tests in example 'logging'",
+            "cargo": {
+                "args": [
+                    "test",
+                    "--no-run",
+                    "--example=logging",
+                    "--package=r2r"
+                ],
+                "filter": {
+                    "name": "logging",
+                    "kind": "example"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug example 'parameters'",
+            "cargo": {
+                "args": [
+                    "build",
+                    "--example=parameters",
+                    "--package=r2r"
+                ],
+                "filter": {
+                    "name": "parameters",
+                    "kind": "example"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug unit tests in example 'parameters'",
+            "cargo": {
+                "args": [
+                    "test",
+                    "--no-run",
+                    "--example=parameters",
+                    "--package=r2r"
+                ],
+                "filter": {
+                    "name": "parameters",
+                    "kind": "example"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug example 'rostopic_list'",
+            "cargo": {
+                "args": [
+                    "build",
+                    "--example=rostopic_list",
+                    "--package=r2r"
+                ],
+                "filter": {
+                    "name": "rostopic_list",
+                    "kind": "example"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug unit tests in example 'rostopic_list'",
+            "cargo": {
+                "args": [
+                    "test",
+                    "--no-run",
+                    "--example=rostopic_list",
+                    "--package=r2r"
+                ],
+                "filter": {
+                    "name": "rostopic_list",
+                    "kind": "example"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug example 'clock'",
+            "cargo": {
+                "args": [
+                    "build",
+                    "--example=clock",
+                    "--package=r2r"
+                ],
+                "filter": {
+                    "name": "clock",
+                    "kind": "example"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug unit tests in example 'clock'",
+            "cargo": {
+                "args": [
+                    "test",
+                    "--no-run",
+                    "--example=clock",
+                    "--package=r2r"
+                ],
+                "filter": {
+                    "name": "clock",
+                    "kind": "example"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug example 'action_client'",
+            "cargo": {
+                "args": [
+                    "build",
+                    "--example=action_client",
+                    "--package=r2r"
+                ],
+                "filter": {
+                    "name": "action_client",
+                    "kind": "example"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug unit tests in example 'action_client'",
+            "cargo": {
+                "args": [
+                    "test",
+                    "--no-run",
+                    "--example=action_client",
+                    "--package=r2r"
+                ],
+                "filter": {
+                    "name": "action_client",
+                    "kind": "example"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug example 'tokio_client'",
+            "cargo": {
+                "args": [
+                    "build",
+                    "--example=tokio_client",
+                    "--package=r2r"
+                ],
+                "filter": {
+                    "name": "tokio_client",
+                    "kind": "example"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug unit tests in example 'tokio_client'",
+            "cargo": {
+                "args": [
+                    "test",
+                    "--no-run",
+                    "--example=tokio_client",
+                    "--package=r2r"
+                ],
+                "filter": {
+                    "name": "tokio_client",
+                    "kind": "example"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug integration test 'threads'",
+            "cargo": {
+                "args": [
+                    "test",
+                    "--no-run",
+                    "--test=threads",
+                    "--package=r2r"
+                ],
+                "filter": {
+                    "name": "threads",
+                    "kind": "test"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug integration test 'tokio_testing'",
+            "cargo": {
+                "args": [
+                    "test",
+                    "--no-run",
+                    "--test=tokio_testing",
+                    "--package=r2r"
+                ],
+                "filter": {
+                    "name": "tokio_testing",
+                    "kind": "test"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug unit tests in library 'r2r_actions'",
+            "cargo": {
+                "args": [
+                    "test",
+                    "--no-run",
+                    "--lib",
+                    "--package=r2r_actions"
+                ],
+                "filter": {
+                    "name": "r2r_actions",
+                    "kind": "lib"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug unit tests in library 'r2r_msg_gen'",
+            "cargo": {
+                "args": [
+                    "test",
+                    "--no-run",
+                    "--lib",
+                    "--package=r2r_msg_gen"
+                ],
+                "filter": {
+                    "name": "r2r_msg_gen",
+                    "kind": "lib"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug unit tests in library 'r2r_common'",
+            "cargo": {
+                "args": [
+                    "test",
+                    "--no-run",
+                    "--lib",
+                    "--package=r2r_common"
+                ],
+                "filter": {
+                    "name": "r2r_common",
+                    "kind": "lib"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug unit tests in library 'r2r_rcl'",
+            "cargo": {
+                "args": [
+                    "test",
+                    "--no-run",
+                    "--lib",
+                    "--package=r2r_rcl"
+                ],
+                "filter": {
+                    "name": "r2r_rcl",
+                    "kind": "lib"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        }
+    ]
+}

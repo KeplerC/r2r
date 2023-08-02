@@ -3,7 +3,7 @@ use std::sync::{Arc, Mutex};
 use futures::future;
 use futures::stream::StreamExt;
 
-use r2r::QosProfile;
+use r2r::{QosProfile, UntypedServiceSupport};
 use tokio::task;
 
 #[tokio::main]
@@ -12,11 +12,11 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let node = r2r::Node::create(ctx, "testnode", "")?;
     let arc_node = Arc::new(Mutex::new(node));
 
-    let an = arc_node.clone();
-    task::spawn(async move { subscriber(an).await.unwrap() });
+    // let an = arc_node.clone();
+    // task::spawn(async move { subscriber(an).await.unwrap() });
 
-    let an = arc_node.clone();
-    task::spawn(async move { publisher(an).await.unwrap() });
+    // let an = arc_node.clone();
+    // task::spawn(async move { publisher(an).await.unwrap() });
 
     let an = arc_node.clone();
     task::spawn(async move { client(an).await.unwrap() });
@@ -99,15 +99,26 @@ async fn service(arc_node: Arc<Mutex<r2r::Node>>) -> Result<(), r2r::Error> {
     let mut service = {
         // Limiting the scope when locking the arc
         let mut node = arc_node.lock().unwrap();
-        node.create_service::<AddTwoInts::Service>("/add_two_ints")?
+        node.create_service_untyped("/add_two_ints", "example_interfaces/srv/AddTwoInts")?
     };
+    println!("service available.");
     loop {
         match service.next().await {
             Some(req) => {
-                let resp = AddTwoInts::Response {
-                    sum: req.message.a + req.message.b,
-                };
-                req.respond(resp).expect("could not send service response");
+                println!("{:?}", req.message);
+                let mut respond_msg = (UntypedServiceSupport::new_from("example_interfaces/srv/AddTwoInts").unwrap().make_response_msg)();
+                // cast the respond msg to json and change the value of the json 
+                let mut msg = respond_msg.to_json ().unwrap();
+                // get request message from json
+                let sum = req.message["a"].as_u64().unwrap() + req.message["b"].as_u64().unwrap();
+                msg["sum"] = serde_json::Value::Number(serde_json::Number::from(sum));
+                respond_msg.from_json(msg).unwrap();
+                // return with untyped response in json_value
+                // let resp = 
+                // {
+                //     sum: req.message.a + req.message.b,
+                // };
+                req.respond(respond_msg).expect("could not send service response");
             }
             None => break,
         }

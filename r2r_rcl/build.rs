@@ -6,6 +6,7 @@ use std::path::PathBuf;
 
 fn main() {
     r2r_common::print_cargo_watches();
+    r2r_common::print_cargo_ros_distro();
     run_bindgen();
     run_dynlink();
 }
@@ -47,27 +48,23 @@ fn run_bindgen() {
     };
 
     fs::copy(src_file, &target_file).unwrap_or_else(|_| {
-        panic!(
-            "Unable to copy from '{}' to '{}'",
-            src_file.display(),
-            target_file.display()
-        )
+        panic!("Unable to copy from '{}' to '{}'", src_file.display(), target_file.display())
     });
 }
 
+#[cfg(feature = "doc-only")]
+fn run_dynlink() {}
+
+#[cfg(not(feature = "doc-only"))]
 fn run_dynlink() {
-    // Run dynamic linking if (1) "docs-only" feature is disabled.
-    #[cfg(not(feature = "doc-only"))]
-    {
-        r2r_common::print_cargo_link_search();
-        println!("cargo:rustc-link-lib=dylib=rcl");
-        println!("cargo:rustc-link-lib=dylib=rcl_logging_spdlog");
-        println!("cargo:rustc-link-lib=dylib=rcl_yaml_param_parser");
-        println!("cargo:rustc-link-lib=dylib=rcutils");
-        println!("cargo:rustc-link-lib=dylib=rmw");
-        println!("cargo:rustc-link-lib=dylib=rosidl_typesupport_c");
-        println!("cargo:rustc-link-lib=dylib=rosidl_runtime_c");
-    }
+    r2r_common::print_cargo_link_search();
+    println!("cargo:rustc-link-lib=dylib=rcl");
+    println!("cargo:rustc-link-lib=dylib=rcl_logging_spdlog");
+    println!("cargo:rustc-link-lib=dylib=rcl_yaml_param_parser");
+    println!("cargo:rustc-link-lib=dylib=rcutils");
+    println!("cargo:rustc-link-lib=dylib=rmw");
+    println!("cargo:rustc-link-lib=dylib=rosidl_typesupport_c");
+    println!("cargo:rustc-link-lib=dylib=rosidl_runtime_c");
 }
 
 fn gen_bindings(out_file: &Path) {

@@ -57,8 +57,7 @@ impl ClientUntyped {
     ///
     /// Returns a `Future` of Result<serde_json::Value>.
     pub fn request(
-        &self,
-        msg: serde_json::Value,
+        &self, msg: serde_json::Value,
     ) -> Result<impl Future<Output = Result<Result<serde_json::Value>>>> {
         // upgrade to actual ref. if still alive
         let client = self.client.upgrade().ok_or(Error::RCL_RET_CLIENT_INVALID)?;
@@ -100,7 +99,7 @@ where
             // instead of "canceled" we return invalid client.
             Ok(receiver.map_err(|_| Error::RCL_RET_CLIENT_INVALID))
         } else {
-            eprintln!("coult not send request {}", result);
+            log::error!("could not send request {}", result);
             Err(Error::from_rcl_error(result))
         }
     }
@@ -110,8 +109,7 @@ unsafe impl Send for UntypedClient_ {}
 
 impl UntypedClient_ {
     pub fn request(
-        &mut self,
-        msg: serde_json::Value,
+        &mut self, msg: serde_json::Value,
     ) -> Result<impl Future<Output = Result<Result<serde_json::Value>>>> {
         let native_msg = (self.service_type.make_request_msg)();
         native_msg.from_json(msg)?;
@@ -127,7 +125,7 @@ impl UntypedClient_ {
             // instead of "canceled" we return invalid client.
             Ok(receiver.map_err(|_| Error::RCL_RET_CLIENT_INVALID))
         } else {
-            eprintln!("coult not send request {}", result);
+            log::error!("could not send request {}", result);
             Err(Error::from_rcl_error(result))
         }
     }
@@ -181,7 +179,7 @@ where
                 match sender.send(response) {
                     Ok(()) => {}
                     Err(e) => {
-                        println!("error sending to client: {:?}", e);
+                        log::debug!("error sending to client: {:?}", e);
                     }
                 }
             } else {
@@ -191,9 +189,10 @@ where
                     .map(|(id, _)| id.to_string())
                     .collect::<Vec<_>>()
                     .join(",");
-                eprintln!(
+                log::error!(
                     "no such req id: {}, we have [{}], ignoring",
-                    request_id.sequence_number, we_have
+                    request_id.sequence_number,
+                    we_have
                 );
             }
         } // TODO handle failure.
@@ -267,7 +266,7 @@ impl Client_ for UntypedClient_ {
                 match sender.send(response) {
                     Ok(()) => {}
                     Err(e) => {
-                        println!("error sending to client: {:?}", e);
+                        log::debug!("error sending to client: {:?}", e);
                     }
                 }
             } else {
@@ -277,9 +276,10 @@ impl Client_ for UntypedClient_ {
                     .map(|(id, _)| id.to_string())
                     .collect::<Vec<_>>()
                     .join(",");
-                eprintln!(
+                log::error!(
                     "no such req id: {}, we have [{}], ignoring",
-                    request_id.sequence_number, we_have
+                    request_id.sequence_number,
+                    we_have
                 );
             }
         } // TODO handle failure.
@@ -319,9 +319,7 @@ impl Client_ for UntypedClient_ {
 }
 
 pub fn create_client_helper(
-    node: *mut rcl_node_t,
-    service_name: &str,
-    service_ts: *const rosidl_service_type_support_t,
+    node: *mut rcl_node_t, service_name: &str, service_ts: *const rosidl_service_type_support_t,
 ) -> Result<rcl_client_t> {
     let mut client_handle = unsafe { rcl_get_zero_initialized_client() };
     let service_name_c_string =
