@@ -109,7 +109,9 @@ async fn service(arc_node: Arc<Mutex<r2r::Node>>) -> Result<(), r2r::Error> {
                 let mut respond_msg = (UntypedServiceSupport::new_from("example_interfaces/srv/AddTwoInts").unwrap().make_response_msg)();
                 // cast the respond msg to json and change the value of the json 
                 let mut msg = respond_msg.to_json ().unwrap();
-                msg["sum"] = serde_json::Value::Number(serde_json::Number::from(6));
+                // get request message from json
+                let sum = req.message["a"].as_u64().unwrap() + req.message["b"].as_u64().unwrap();
+                msg["sum"] = serde_json::Value::Number(serde_json::Number::from(sum));
                 respond_msg.from_json(msg).unwrap();
                 // return with untyped response in json_value
                 // let resp = 
