@@ -333,12 +333,15 @@ impl Node {
     /// This function returns a `Stream` of ros messages as `serde_json::Value`:s.
     /// Useful when you cannot know the type of the message at compile time.
     pub fn subscribe_untyped(
-        &mut self, topic: &str, topic_type: &str, qos_profile: QosProfile,
-    ) -> Result<impl Stream<Item = Result<serde_json::Value>> + Unpin> {
+        &mut self,
+        topic: &str,
+        topic_type: &str,
+        qos_profile: QosProfile,
+    ) -> Result<impl Stream<Item =  Vec<u8> > + Unpin> {
         let msg = WrappedNativeMsgUntyped::new_from(topic_type)?;
         let subscription_handle =
             create_subscription_helper(self.node_handle.as_mut(), topic, msg.ts, qos_profile)?;
-        let (sender, receiver) = mpsc::channel::<Result<serde_json::Value>>(10);
+        let (sender, receiver) = mpsc::channel::<Vec<u8>>(10);
 
         let ws = UntypedSubscriber {
             rcl_handle: subscription_handle,
