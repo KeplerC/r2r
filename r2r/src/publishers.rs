@@ -105,7 +105,7 @@ impl PublisherUntyped {
     /// Publish an "untyped" ROS message represented by a `serde_json::Value`.
     ///
     /// It is up to the user to make sure the fields are correct.
-    pub fn publish(&self, msg: serde_json::Value) -> Result<()> {
+    pub fn publish(&self, msg: Vec<u8>) -> Result<()> {
         // upgrade to actual ref. if still alive
         let publisher = self
             .handle
@@ -113,7 +113,7 @@ impl PublisherUntyped {
             .ok_or(Error::RCL_RET_PUBLISHER_INVALID)?;
 
         let native_msg = WrappedNativeMsgUntyped::new_from(&self.type_)?;
-        native_msg.from_json(msg)?;
+        native_msg.from_binary(msg);
 
         let result =
             unsafe { rcl_publish(publisher.as_ref(), native_msg.void_ptr(), std::ptr::null_mut()) };
