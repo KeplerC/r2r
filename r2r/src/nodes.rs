@@ -382,15 +382,16 @@ impl Node {
     ) -> Result<impl Stream<Item = UntypedServiceRequest> + Unpin>
     {
         println!("create_service_untyped");
-        let service_type = UntypedServiceSupport::new_from(service_type).unwrap();
+        let service_type_support = UntypedServiceSupport::new_from(service_type).unwrap();
         let service_handle =
-            create_service_helper(self.node_handle.as_mut(), service_name, service_type.ts)?;
+            create_service_helper(self.node_handle.as_mut(), service_name, service_type_support.ts)?;
         let (sender, receiver) = mpsc::channel::<UntypedServiceRequest>(10);
 
         println!("create_service_untyped");
         let ws = UnTypedService{
             rcl_handle: service_handle,
             outstanding_requests: vec![],
+            service_type: format!("{}",service_type),
             sender,
         };
         println!("create_service_untyped");
