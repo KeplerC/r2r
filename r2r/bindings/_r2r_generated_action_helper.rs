@@ -1,63 +1,30 @@
-
 impl UntypedActionSupport {
     pub fn new_from(typename: &str) -> Result<Self> {
-
-        if typename == "action_tutorials_interfaces/action/Fibonacci" {
-            return Ok(UntypedActionSupport::new::<action_tutorials_interfaces::action::Fibonacci::Action>());
+        #[allow(non_snake_case)]
+        fn new_untyped_service_support_test_msgs_action_Fibonacci() -> UntypedActionSupport {
+            UntypedActionSupport::new::<test_msgs::action::Fibonacci::Action>()
         }
-
-        if typename == "example_interfaces/action/Fibonacci" {
-            return Ok(UntypedActionSupport::new::<example_interfaces::action::Fibonacci::Action>());
+        #[allow(non_snake_case)]
+        fn new_untyped_service_support_test_msgs_action_NestedMessage() -> UntypedActionSupport {
+            UntypedActionSupport::new::<test_msgs::action::NestedMessage::Action>()
         }
-
-        if typename == "nav2_msgs/action/BackUp" {
-            return Ok(UntypedActionSupport::new::<nav2_msgs::action::BackUp::Action>());
+        #[allow(non_snake_case)]
+        fn new_untyped_service_support_tf2_msgs_action_LookupTransform() -> UntypedActionSupport {
+            UntypedActionSupport::new::<tf2_msgs::action::LookupTransform::Action>()
         }
-
-        if typename == "nav2_msgs/action/ComputePathThroughPoses" {
-            return Ok(UntypedActionSupport::new::<nav2_msgs::action::ComputePathThroughPoses::Action>());
-        }
-
-        if typename == "nav2_msgs/action/ComputePathToPose" {
-            return Ok(UntypedActionSupport::new::<nav2_msgs::action::ComputePathToPose::Action>());
-        }
-
-        if typename == "nav2_msgs/action/DummyRecovery" {
-            return Ok(UntypedActionSupport::new::<nav2_msgs::action::DummyRecovery::Action>());
-        }
-
-        if typename == "nav2_msgs/action/FollowPath" {
-            return Ok(UntypedActionSupport::new::<nav2_msgs::action::FollowPath::Action>());
-        }
-
-        if typename == "nav2_msgs/action/FollowWaypoints" {
-            return Ok(UntypedActionSupport::new::<nav2_msgs::action::FollowWaypoints::Action>());
-        }
-
-        if typename == "nav2_msgs/action/NavigateThroughPoses" {
-            return Ok(UntypedActionSupport::new::<nav2_msgs::action::NavigateThroughPoses::Action>());
-        }
-
-        if typename == "nav2_msgs/action/NavigateToPose" {
-            return Ok(UntypedActionSupport::new::<nav2_msgs::action::NavigateToPose::Action>());
-        }
-
-        if typename == "nav2_msgs/action/Spin" {
-            return Ok(UntypedActionSupport::new::<nav2_msgs::action::Spin::Action>());
-        }
-
-        if typename == "nav2_msgs/action/Wait" {
-            return Ok(UntypedActionSupport::new::<nav2_msgs::action::Wait::Action>());
-        }
-
-        if typename == "tf2_msgs/action/LookupTransform" {
-            return Ok(UntypedActionSupport::new::<tf2_msgs::action::LookupTransform::Action>());
-        }
-
-        if typename == "turtlesim/action/RotateAbsolute" {
-            return Ok(UntypedActionSupport::new::<turtlesim::action::RotateAbsolute::Action>());
-        }
-
-        return Err(Error::InvalidMessageType{ msgtype: typename.into() })
+        static MAP: phf::Map<&'static str, fn() -> UntypedActionSupport> = phf::phf_map! {
+            "test_msgs/action/Fibonacci" =>
+            new_untyped_service_support_test_msgs_action_Fibonacci,
+            "test_msgs/action/NestedMessage" =>
+            new_untyped_service_support_test_msgs_action_NestedMessage,
+            "tf2_msgs/action/LookupTransform" =>
+            new_untyped_service_support_tf2_msgs_action_LookupTransform
+        };
+        let func = MAP
+            .get(typename)
+            .ok_or_else(|| Error::InvalidMessageType {
+                msgtype: typename.into(),
+            })?;
+        Ok(func())
     }
 }

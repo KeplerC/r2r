@@ -6,6 +6,7 @@ const BINDINGS_FILENAME: &str = "action_bindings.rs";
 
 fn main() {
     r2r_common::print_cargo_watches();
+    r2r_common::print_cargo_ros_distro();
 
     run_bindgen();
     run_dynlink();
@@ -24,11 +25,7 @@ fn run_bindgen() {
 
     if cfg!(feature = "doc-only") {
         // If "doc-only" feature is present, copy from $crate/bindings/* to OUT_DIR
-        eprintln!(
-            "Copy from '{}' to '{}'",
-            saved_file.display(),
-            target_file.display()
-        );
+        eprintln!("Copy from '{}' to '{}'", saved_file.display(), target_file.display());
         fs::copy(&saved_file, &target_file).unwrap();
     } else {
         // If bindgen was done before, use cached files.
@@ -51,12 +48,13 @@ fn run_bindgen() {
     }
 }
 
+#[cfg(feature = "doc-only")]
+fn run_dynlink() {}
+
+#[cfg(not(feature = "doc-only"))]
 fn run_dynlink() {
-    #[cfg(not(feature = "doc-only"))]
-    {
-        r2r_common::print_cargo_link_search();
-        println!("cargo:rustc-link-lib=dylib=rcl_action");
-    }
+    r2r_common::print_cargo_link_search();
+    println!("cargo:rustc-link-lib=dylib=rcl_action");
 }
 
 fn generate_bindings(out_file: &Path) {

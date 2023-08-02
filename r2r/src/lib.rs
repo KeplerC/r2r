@@ -81,6 +81,7 @@ pub use msg_types::WrappedActionTypeSupport;
 pub use msg_types::WrappedNativeMsg as NativeMsg;
 pub use msg_types::WrappedServiceTypeSupport;
 pub use msg_types::WrappedTypesupport;
+pub use msg_types::UntypedServiceSupport;
 
 mod utils;
 pub use utils::*;
@@ -122,3 +123,20 @@ pub use nodes::{Node, Timer};
 
 pub mod qos;
 pub use qos::QosProfile;
+
+/// The ros version currently built against.
+#[cfg(r2r__ros__distro__foxy)]
+pub const ROS_DISTRO: &str = "foxy";
+#[cfg(r2r__ros__distro__galactic)]
+pub const ROS_DISTRO: &str = "galactic";
+#[cfg(r2r__ros__distro__humble)]
+pub const ROS_DISTRO: &str = "humble";
+#[cfg(r2r__ros__distro__rolling)]
+pub const ROS_DISTRO: &str = "rolling";
+#[cfg(not(any(
+    r2r__ros__distro__foxy,
+    r2r__ros__distro__galactic,
+    r2r__ros__distro__humble,
+    r2r__ros__distro__rolling
+)))]
+pub const ROS_DISTRO: &str = "unknown";

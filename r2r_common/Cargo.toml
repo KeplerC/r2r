@@ -1,6 +1,6 @@
 [package]
 name = "r2r_common"
-version = "0.3.4"
+version = "0.3.8"
 authors = ["Martin Dahl <martin.dahl@gmail.com>"]
 description = "Minimal ros2 bindings."
 license = "MIT"
@@ -14,3 +14,11 @@ documentation = "https://docs.rs/r2r/latest/r2r"
 bindgen = "0.63.0"
 itertools = "0.10.5"
 sha2 = "0.10.6"
+os_str_bytes = "6.5.1"
+regex = "1.8.4"
+
+[features]
+doc-only = []
+
+[package.metadata.docs.rs]
+features = ["doc-only"]

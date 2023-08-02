@@ -2,8 +2,8 @@ use std::ffi::c_void;
 use std::ffi::CString;
 use std::fmt::Debug;
 use std::marker::PhantomData;
-use std::sync::Weak;
 use std::sync::Once;
+use std::sync::Weak;
 
 use crate::error::*;
 use crate::msg_types::*;
@@ -77,9 +77,7 @@ pub fn make_publisher_untyped(handle: Weak<rcl_publisher_t>, type_: String) -> P
 }
 
 pub fn create_publisher_helper(
-    node: &mut rcl_node_t,
-    topic: &str,
-    typesupport: *const rosidl_message_type_support_t,
+    node: &mut rcl_node_t, topic: &str, typesupport: *const rosidl_message_type_support_t,
     qos_profile: QosProfile,
 ) -> Result<rcl_publisher_t> {
     let mut publisher_handle = unsafe { rcl_get_zero_initialized_publisher() };
@@ -117,18 +115,13 @@ impl PublisherUntyped {
         let native_msg = WrappedNativeMsgUntyped::new_from(&self.type_)?;
         native_msg.from_binary(msg);
 
-        let result = unsafe {
-            rcl_publish(
-                publisher.as_ref(),
-                native_msg.void_ptr(),
-                std::ptr::null_mut(),
-            )
-        };
+        let result =
+            unsafe { rcl_publish(publisher.as_ref(), native_msg.void_ptr(), std::ptr::null_mut()) };
 
         if result == RCL_RET_OK as i32 {
             Ok(())
         } else {
-            eprintln!("coult not publish {}", result);
+            log::error!("could not publish {}", result);
             Err(Error::from_rcl_error(result))
         }
     }
@@ -149,18 +142,13 @@ where
             .upgrade()
             .ok_or(Error::RCL_RET_PUBLISHER_INVALID)?;
         let native_msg: WrappedNativeMsg<T> = WrappedNativeMsg::<T>::from(msg);
-        let result = unsafe {
-            rcl_publish(
-                publisher.as_ref(),
-                native_msg.void_ptr(),
-                std::ptr::null_mut(),
-            )
-        };
+        let result =
+            unsafe { rcl_publish(publisher.as_ref(), native_msg.void_ptr(), std::ptr::null_mut()) };
 
         if result == RCL_RET_OK as i32 {
             Ok(())
         } else {
-            eprintln!("coult not publish {}", result);
+            log::error!("could not publish {}", result);
             Err(Error::from_rcl_error(result))
         }
     }
@@ -181,9 +169,8 @@ where
                 rcl_borrow_loaned_message(publisher.as_ref(), T::get_ts(), &mut loaned_msg)
             };
             if ret != RCL_RET_OK as i32 {
-                // TODO: Switch to logging library
-                eprintln!("Failed getting loaned message");
-                return Err(Error::from_rcl_error(ret))
+                log::error!("Failed getting loaned message");
+                return Err(Error::from_rcl_error(ret));
             }
 
             let handle_box = Box::new(*publisher.as_ref());
@@ -208,11 +195,12 @@ where
             Ok(msg)
         } else {
             static LOG_LOANED_ERROR: Once = Once::new();
-            LOG_LOANED_ERROR.call_once(|| { 
-                // TODO: Switch to logging library
-                eprintln!("Currently used middleware can't loan messages. Local allocator will be used.");
+            LOG_LOANED_ERROR.call_once(|| {
+                log::error!(
+                    "Currently used middleware can't loan messages. Local allocator will be used."
+                );
             });
-            
+
             Ok(WrappedNativeMsg::<T>::new())
         }
     }
@@ -250,7 +238,7 @@ where
         if result == RCL_RET_OK as i32 {
             Ok(())
         } else {
-            eprintln!("could not publish native {}", result);
+            log::error!("could not publish native {}", result);
             Err(Error::from_rcl_error(result))
         }
     }

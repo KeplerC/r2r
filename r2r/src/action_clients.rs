@@ -86,8 +86,7 @@ where
     /// - A new future for the eventual result.
     /// - A stream of feedback messages.
     pub fn send_goal_request(
-        &self,
-        goal: T::Goal,
+        &self, goal: T::Goal,
     ) -> Result<
         impl Future<
             Output = Result<(
@@ -164,7 +163,7 @@ where
                 });
             Ok(future)
         } else {
-            eprintln!("coult not send goal request {}", result);
+            log::error!("could not send goal request {}", result);
             Err(Error::from_rcl_error(result))
         }
     }
@@ -219,8 +218,7 @@ where
     }
 
     pub fn send_cancel_request(
-        &mut self,
-        goal: &uuid::Uuid,
+        &mut self, goal: &uuid::Uuid,
     ) -> Result<impl Future<Output = Result<()>>>
     where
         T: WrappedActionTypeSupport,
@@ -250,17 +248,31 @@ where
                 .map_err(|_| Error::RCL_RET_CLIENT_INVALID)
                 .map(|r| match r {
                     Ok(r) => match r.return_code {
-                        0 => Ok(()),
-                        1 => Err(Error::GoalCancelRejected),
-                        2 => Err(Error::GoalCancelUnknownGoalID),
-                        3 => Err(Error::GoalCancelAlreadyTerminated),
+                        e if e == action_msgs::srv::CancelGoal::Response::ERROR_NONE as i8 => {
+                            Ok(())
+                        }
+                        e if e == action_msgs::srv::CancelGoal::Response::ERROR_REJECTED as i8 => {
+                            Err(Error::GoalCancelRejected)
+                        }
+                        e if e
+                            == action_msgs::srv::CancelGoal::Response::ERROR_UNKNOWN_GOAL_ID
+                                as i8 =>
+                        {
+                            Err(Error::GoalCancelUnknownGoalID)
+                        }
+                        e if e
+                            == action_msgs::srv::CancelGoal::Response::ERROR_GOAL_TERMINATED
+                                as i8 =>
+                        {
+                            Err(Error::GoalCancelAlreadyTerminated)
+                        }
                         x => panic!("unknown error code return from action server: {}", x),
                     },
                     Err(e) => Err(e),
                 });
             Ok(future)
         } else {
-            eprintln!("coult not send goal request {}", result);
+            log::error!("could not send goal request {}", result);
             Err(Error::from_rcl_error(result))
         }
     }
@@ -300,7 +312,7 @@ where
                 match sender.send((accept, stamp)) {
                     Ok(()) => {}
                     Err(e) => {
-                        println!("error sending to action client: {:?}", e);
+                        log::debug!("error sending to action client: {:?}", e);
                     }
                 }
             } else {
@@ -310,9 +322,10 @@ where
                     .map(|(id, _)| id.to_string())
                     .collect::<Vec<_>>()
                     .join(",");
-                eprintln!(
+                log::error!(
                     "no such req id: {}, we have [{}], ignoring",
-                    request_id.sequence_number, we_have
+                    request_id.sequence_number,
+                    we_have
                 );
             }
         }
@@ -339,7 +352,7 @@ where
                 let (_, sender) = self.cancel_response_channels.swap_remove(idx);
                 let response = action_msgs::srv::CancelGoal::Response::from_native(&response_msg);
                 if let Err(e) = sender.send(response) {
-                    eprintln!("warning: could not send cancel response msg ({:?})", e)
+                    log::error!("warning: could not send cancel response msg ({:?})", e)
                 }
             } else {
                 let we_have: String = self
@@ -348,9 +361,10 @@ where
                     .map(|(id, _)| id.to_string())
                     .collect::<Vec<_>>()
                     .join(",");
-                eprintln!(
+                log::error!(
                     "no such req id: {}, we have [{}], ignoring",
-                    request_id.sequence_number, we_have
+                    request_id.sequence_number,
+                    we_have
                 );
             }
         }
@@ -370,7 +384,7 @@ where
                 .find(|(uuid, _)| uuid == &msg_uuid)
             {
                 if let Err(e) = sender.try_send(feedback) {
-                    eprintln!("warning: could not send feedback msg ({})", e)
+                    log::error!("warning: could not send feedback msg ({})", e)
                 }
             }
         }
@@ -426,7 +440,7 @@ where
                     match sender.send((status, result)) {
                         Ok(()) => {}
                         Err(e) => {
-                            println!("error sending result to action client: {:?}", e);
+                            log::debug!("error sending result to action client: {:?}", e);
                         }
                     }
                 }
@@ -437,9 +451,10 @@ where
                     .map(|(id, _)| id.to_string())
                     .collect::<Vec<_>>()
                     .join(",");
-                eprintln!(
+                log::error!(
                     "no such req id: {}, we have [{}], ignoring",
-                    request_id.sequence_number, we_have
+                    request_id.sequence_number,
+                    we_have
                 );
             }
         }
@@ -461,7 +476,7 @@ where
         if result == RCL_RET_OK as i32 {
             self.result_requests.push((seq_no, uuid));
         } else {
-            eprintln!("coult not send request {}", result);
+            log::error!("could not send request {}", result);
         }
     }
 
@@ -499,9 +514,7 @@ where
 }
 
 pub fn create_action_client_helper(
-    node: &mut rcl_node_t,
-    action_name: &str,
-    action_ts: *const rosidl_action_type_support_t,
+    node: &mut rcl_node_t, action_name: &str, action_ts: *const rosidl_action_type_support_t,
 ) -> Result<rcl_action_client_t> {
     let mut client_handle = unsafe { rcl_action_get_zero_initialized_client() };
     let action_name_c_string =
@@ -525,12 +538,8 @@ pub fn create_action_client_helper(
 }
 
 pub fn action_client_get_num_waits(
-    rcl_handle: &rcl_action_client_t,
-    num_subs: &mut usize,
-    num_gc: &mut usize,
-    num_timers: &mut usize,
-    num_clients: &mut usize,
-    num_services: &mut usize,
+    rcl_handle: &rcl_action_client_t, num_subs: &mut usize, num_gc: &mut usize,
+    num_timers: &mut usize, num_clients: &mut usize, num_services: &mut usize,
 ) -> Result<()> {
     unsafe {
         let result = rcl_action_client_wait_set_get_num_entities(
@@ -567,8 +576,7 @@ where
 }
 
 pub fn action_server_available_helper(
-    node: &rcl_node_t,
-    client: &rcl_action_client_t,
+    node: &rcl_node_t, client: &rcl_action_client_t,
 ) -> Result<bool> {
     let mut avail = false;
     let result = unsafe { rcl_action_server_is_available(node, client, &mut avail) };
@@ -576,7 +584,7 @@ pub fn action_server_available_helper(
     if result == RCL_RET_OK as i32 {
         Ok(avail)
     } else {
-        eprintln!("coult not check if action server is available {}", result);
+        log::error!("could not check if action server is available {}", result);
         Err(Error::from_rcl_error(result))
     }
 }

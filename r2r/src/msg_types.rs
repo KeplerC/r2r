@@ -14,14 +14,8 @@ pub mod generated_msgs {
     #![allow(clippy::all)]
     use super::*;
     include!(concat!(env!("OUT_DIR"), "/_r2r_generated_msgs.rs"));
-    include!(concat!(
-        env!("OUT_DIR"),
-        "/_r2r_generated_untyped_helper.rs"
-    ));
-    include!(concat!(
-        env!("OUT_DIR"),
-        "/_r2r_generated_service_helper.rs"
-    ));
+    include!(concat!(env!("OUT_DIR"), "/_r2r_generated_untyped_helper.rs"));
+    include!(concat!(env!("OUT_DIR"), "/_r2r_generated_service_helper.rs"));
     include!(concat!(env!("OUT_DIR"), "/_r2r_generated_action_helper.rs"));
 }
 
@@ -40,7 +34,7 @@ pub(crate) fn uuid_msg_to_uuid(msg: &unique_identifier_msgs::msg::UUID) -> uuid:
 }
 
 pub trait WrappedTypesupport:
-    Serialize + serde::de::DeserializeOwned + Default + Debug + Clone
+    Serialize + for<'de> Deserialize<'de> + Default + Debug + Clone
 {
     type CStruct;
 
@@ -71,23 +65,19 @@ pub trait WrappedActionTypeSupport: Debug + Clone {
     fn get_ts() -> &'static rosidl_action_type_support_t;
 
     fn make_goal_request_msg(
-        goal_id: unique_identifier_msgs::msg::UUID,
-        goal: Self::Goal,
+        goal_id: unique_identifier_msgs::msg::UUID, goal: Self::Goal,
     ) -> <<Self as WrappedActionTypeSupport>::SendGoal as WrappedServiceTypeSupport>::Request;
     fn make_goal_response_msg(
-        accepted: bool,
-        stamp: builtin_interfaces::msg::Time,
+        accepted: bool, stamp: builtin_interfaces::msg::Time,
     ) -> <<Self as WrappedActionTypeSupport>::SendGoal as WrappedServiceTypeSupport>::Response;
     fn make_feedback_msg(
-        goal_id: unique_identifier_msgs::msg::UUID,
-        feedback: Self::Feedback,
+        goal_id: unique_identifier_msgs::msg::UUID, feedback: Self::Feedback,
     ) -> Self::FeedbackMessage;
     fn make_result_request_msg(
         goal_id: unique_identifier_msgs::msg::UUID,
     ) -> <<Self as WrappedActionTypeSupport>::GetResult as WrappedServiceTypeSupport>::Request;
     fn make_result_response_msg(
-        status: i8,
-        result: Self::Result,
+        status: i8, result: Self::Result,
     ) -> <<Self as WrappedActionTypeSupport>::GetResult as WrappedServiceTypeSupport>::Response;
     fn destructure_goal_request_msg(
         msg: <<Self as WrappedActionTypeSupport>::SendGoal as WrappedServiceTypeSupport>::Request,
@@ -399,8 +389,7 @@ where
     }
 
     pub fn from_loaned(
-        msg: *mut T::CStruct,
-        deallocator: Box<dyn FnOnce(*mut <T as WrappedTypesupport>::CStruct)>,
+        msg: *mut T::CStruct, deallocator: Box<dyn FnOnce(*mut <T as WrappedTypesupport>::CStruct)>,
     ) -> Self {
         WrappedNativeMsg {
             msg,
@@ -802,5 +791,30 @@ mod tests {
             .unwrap();
         // the message should contain something (default msg)
         assert!(!json_request.to_string().is_empty());
+    }
+
+    #[cfg(r2r__action_msgs__msg__GoalStatus)]
+    #[test]
+    fn test_msg_constants() {
+        use action_msgs::msg::GoalStatus;
+        let gs = GoalStatus::default();
+
+        assert_eq!(gs.status, GoalStatus::STATUS_UNKNOWN as i8);
+        assert_eq!(0, GoalStatus::STATUS_UNKNOWN as i8);
+        assert_eq!(1, GoalStatus::STATUS_ACCEPTED as i8);
+        assert_eq!(2, GoalStatus::STATUS_EXECUTING as i8);
+        assert_eq!(3, GoalStatus::STATUS_CANCELING as i8);
+        assert_eq!(4, GoalStatus::STATUS_SUCCEEDED as i8);
+        assert_eq!(5, GoalStatus::STATUS_CANCELED as i8);
+        assert_eq!(6, GoalStatus::STATUS_ABORTED as i8);
+
+        use action_msgs::srv::CancelGoal;
+        let cgr = CancelGoal::Response::default();
+
+        assert_eq!(cgr.return_code, CancelGoal::Response::ERROR_NONE as i8);
+        assert_eq!(0, CancelGoal::Response::ERROR_NONE as i8);
+        assert_eq!(1, CancelGoal::Response::ERROR_REJECTED as i8);
+        assert_eq!(2, CancelGoal::Response::ERROR_UNKNOWN_GOAL_ID as i8);
+        assert_eq!(3, CancelGoal::Response::ERROR_GOAL_TERMINATED as i8);
     }
 }
