@@ -92,6 +92,7 @@ pub use publishers::{Publisher, PublisherUntyped};
 
 mod services;
 pub use services::ServiceRequest;
+pub use services::UntypedServiceRequest;
 
 mod clients;
 pub use clients::{Client, ClientUntyped};
