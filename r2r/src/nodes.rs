@@ -210,7 +210,7 @@ impl Node {
     ) -> Result<(impl Future<Output = ()> + Send, impl Stream<Item = (String, ParameterValue)>)>
     {
         let mut handlers: Vec<std::pin::Pin<Box<dyn Future<Output = ()> + Send>>> = Vec::new();
-        let (mut event_tx, event_rx) = mpsc::channel::<(String, ParameterValue)>(10);
+        let (mut event_tx, event_rx) = mpsc::channel::<(String, ParameterValue)>(100);
 
         let node_name = self.name()?;
         let set_params_request_stream = self
@@ -297,7 +297,7 @@ impl Node {
     {
         let subscription_handle =
             create_subscription_helper(self.node_handle.as_mut(), topic, T::get_ts(), qos_profile)?;
-        let (sender, receiver) = mpsc::channel::<T>(10);
+        let (sender, receiver) = mpsc::channel::<T>(100);
 
         let ws = TypedSubscriber {
             rcl_handle: subscription_handle,
@@ -318,7 +318,7 @@ impl Node {
     {
         let subscription_handle =
             create_subscription_helper(self.node_handle.as_mut(), topic, T::get_ts(), qos_profile)?;
-        let (sender, receiver) = mpsc::channel::<WrappedNativeMsg<T>>(10);
+        let (sender, receiver) = mpsc::channel::<WrappedNativeMsg<T>>(100);
 
         let ws = NativeSubscriber {
             rcl_handle: subscription_handle,
@@ -341,7 +341,7 @@ impl Node {
         let msg = WrappedNativeMsgUntyped::new_from(topic_type)?;
         let subscription_handle =
             create_subscription_helper(self.node_handle.as_mut(), topic, msg.ts, qos_profile)?;
-        let (sender, receiver) = mpsc::channel::<Vec<u8>>(10);
+        let (sender, receiver) = mpsc::channel::<Vec<u8>>(100);
 
         let ws = UntypedSubscriber {
             rcl_handle: subscription_handle,
@@ -364,7 +364,7 @@ impl Node {
     {
         let service_handle =
             create_service_helper(self.node_handle.as_mut(), service_name, T::get_ts())?;
-        let (sender, receiver) = mpsc::channel::<ServiceRequest<T>>(10);
+        let (sender, receiver) = mpsc::channel::<ServiceRequest<T>>(100);
 
         let ws = TypedService::<T>{
             rcl_handle: service_handle,
@@ -388,7 +388,7 @@ impl Node {
         let service_type_support = UntypedServiceSupport::new_from(service_type).unwrap();
         let service_handle =
             create_service_helper(self.node_handle.as_mut(), service_name, service_type_support.ts)?;
-        let (sender, receiver) = mpsc::channel::<UntypedServiceRequest>(10);
+        let (sender, receiver) = mpsc::channel::<UntypedServiceRequest>(100);
 
         println!("create_service_untyped");
         let ws = UnTypedService{
@@ -545,7 +545,7 @@ impl Node {
         let mut clock_handle = Box::new(unsafe { clock_handle.assume_init() });
 
         let (goal_request_sender, goal_request_receiver) =
-            mpsc::channel::<ActionServerGoalRequest<T>>(10);
+            mpsc::channel::<ActionServerGoalRequest<T>>(100);
 
         let server_handle = create_action_server_helper(
             self.node_handle.as_mut(),
