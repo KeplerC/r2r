@@ -57,8 +57,8 @@ impl ClientUntyped {
     ///
     /// Returns a `Future` of Result<serde_json::Value>.
     pub fn request(
-        &self, msg: serde_json::Value,
-    ) -> Result<impl Future<Output = Result<Result<serde_json::Value>>>> {
+        &self, msg: Vec<u8>,
+    ) -> Result<impl Future<Output = Result<Result<Vec<u8>>>>> {
         // upgrade to actual ref. if still alive
         let client = self.client.upgrade().ok_or(Error::RCL_RET_CLIENT_INVALID)?;
         let mut client = client.lock().unwrap();
@@ -109,16 +109,16 @@ unsafe impl Send for UntypedClient_ {}
 
 impl UntypedClient_ {
     pub fn request(
-        &mut self, msg: serde_json::Value,
-    ) -> Result<impl Future<Output = Result<Result<serde_json::Value>>>> {
+        &mut self, msg: Vec<u8>,
+    ) -> Result<impl Future<Output = Result<Result<Vec<u8>>>>> {
         let native_msg = (self.service_type.make_request_msg)();
-        native_msg.from_json(msg)?;
+        native_msg.from_binary(msg);
 
         let mut seq_no = 0i64;
         let result =
             unsafe { rcl_send_request(&self.rcl_handle, native_msg.void_ptr(), &mut seq_no) };
 
-        let (sender, receiver) = oneshot::channel::<Result<serde_json::Value>>();
+        let (sender, receiver) = oneshot::channel::<Result<Vec<u8>>>();
 
         if result == RCL_RET_OK as i32 {
             self.response_channels.push((seq_no, sender));
@@ -129,6 +129,28 @@ impl UntypedClient_ {
             Err(Error::from_rcl_error(result))
         }
     }
+
+    // pub fn request_binary(
+    //     &mut self, msg: Vec<u8>,
+    // ) -> Result<impl Future<Output = Result<Result<Vec<u8>>>>> {
+    //     let native_msg = (self.service_type.make_request_msg)();
+    //     native_msg.from_binary(msg);
+
+    //     let mut seq_no = 0i64;
+    //     let result =
+    //         unsafe { rcl_send_request(&self.rcl_handle, native_msg.void_ptr(), &mut seq_no) };
+
+    //     let (sender, receiver) = oneshot::channel::<Result<Vec<u8>>>();
+
+    //     if result == RCL_RET_OK as i32 {
+    //         self.response_channels.push((seq_no, sender));
+    //         // instead of "canceled" we return invalid client.
+    //         Ok(receiver.map_err(|_| Error::RCL_RET_CLIENT_INVALID))
+    //     } else {
+    //         log::error!("could not send request {}", result);
+    //         Err(Error::from_rcl_error(result))
+    //     }
+    // }
 }
 
 pub trait Client_ {
@@ -234,7 +256,7 @@ where
 pub struct UntypedClient_ {
     pub service_type: UntypedServiceSupport,
     pub rcl_handle: rcl_client_t,
-    pub response_channels: Vec<(i64, oneshot::Sender<Result<serde_json::Value>>)>,
+    pub response_channels: Vec<(i64, oneshot::Sender<Result<Vec<u8>>>)>,
     pub poll_available_channels: Vec<oneshot::Sender<()>>,
 }
 
@@ -262,8 +284,8 @@ impl Client_ for UntypedClient_ {
                 .position(|(id, _)| id == &request_id.sequence_number)
             {
                 let (_, sender) = self.response_channels.swap_remove(idx);
-                let response = response_msg.to_json();
-                match sender.send(response) {
+                let response = response_msg.to_binary();
+                match sender.send(Ok(response)) {
                     Ok(()) => {}
                     Err(e) => {
                         log::debug!("error sending to client: {:?}", e);
