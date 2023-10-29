@@ -45,7 +45,7 @@ where
 #[derive(Clone)]
 pub struct UntypedServiceRequest
 {
-    pub message: serde_json::Value,
+    pub message: Vec<u8>,
     pub request_id: rmw_request_id_t,
     service: Weak<Mutex<dyn Service_>>,
 }
@@ -175,7 +175,7 @@ impl Service_ for UnTypedService
             let request_id = unsafe { request_id.assume_init() };
             // let request_msg = T::Request::from_native(&request_msg);
             let request = UntypedServiceRequest {
-                message: request_msg.to_json().unwrap(),
+                message: request_msg.to_binary(),
                 request_id,
                 service: Arc::downgrade(&service),
             };
