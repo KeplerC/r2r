@@ -1,13 +1,12 @@
-use std::ffi::c_void;
-use std::ffi::CString;
-use std::fmt::Debug;
-use std::marker::PhantomData;
-use std::sync::Once;
-use std::sync::Weak;
+use futures::{channel::oneshot, Future, TryFutureExt};
+use std::{
+    ffi::{c_void, CString},
+    fmt::Debug,
+    marker::PhantomData,
+    sync::{Mutex, Once, Weak},
+};
 
-use crate::error::*;
-use crate::msg_types::*;
-use crate::qos::QosProfile;
+use crate::{error::*, msg_types::*, qos::QosProfile};
 use r2r_rcl::*;
 
 // The publish function is thread safe. ROS2 docs state:
@@ -37,6 +36,65 @@ use r2r_rcl::*;
 
 unsafe impl<T> Send for Publisher<T> where T: WrappedTypesupport {}
 
+pub(crate) struct Publisher_ {
+    handle: rcl_publisher_t,
+
+    // TODO use a mpsc to avoid the mutex?
+    poll_inter_process_subscriber_channels: Mutex<Vec<oneshot::Sender<()>>>,
+}
+
+impl Publisher_ {
+    fn get_inter_process_subscription_count(&self) -> Result<usize> {
+        // See https://github.com/ros2/rclcpp/issues/623
+
+        let mut inter_process_subscription_count = 0;
+
+        let result = unsafe {
+            rcl_publisher_get_subscription_count(
+                &self.handle as *const rcl_publisher_t,
+                &mut inter_process_subscription_count as *mut usize,
+            )
+        };
+
+        if result == RCL_RET_OK as i32 {
+            Ok(inter_process_subscription_count)
+        } else {
+            Err(Error::from_rcl_error(result))
+        }
+    }
+
+    pub(crate) fn poll_has_inter_process_subscribers(&self) {
+        let mut poll_inter_process_subscriber_channels =
+            self.poll_inter_process_subscriber_channels.lock().unwrap();
+
+        if poll_inter_process_subscriber_channels.is_empty() {
+            return;
+        }
+        let inter_process_subscription_count = self.get_inter_process_subscription_count();
+        match inter_process_subscription_count {
+            Ok(0) => {
+                // not available...
+            }
+            Ok(_) => {
+                // send ok and close channels
+                while let Some(sender) = poll_inter_process_subscriber_channels.pop() {
+                    let _res = sender.send(()); // we ignore if receiver dropped.
+                }
+            }
+            Err(_) => {
+                // error, close all channels
+                poll_inter_process_subscriber_channels.clear();
+            }
+        }
+    }
+
+    pub(crate) fn destroy(mut self, node: &mut rcl_node_t) {
+        let _ret = unsafe { rcl_publisher_fini(&mut self.handle as *mut _, node) };
+
+        // TODO: check ret
+    }
+}
+
 /// A ROS (typed) publisher.
 ///
 /// This contains a `Weak Arc` to a typed publisher. As such it is safe to
@@ -46,7 +104,7 @@ pub struct Publisher<T>
 where
     T: WrappedTypesupport,
 {
-    handle: Weak<rcl_publisher_t>,
+    handle: Weak<Publisher_>,
     type_: PhantomData<T>,
 }
 
@@ -58,11 +116,11 @@ unsafe impl Send for PublisherUntyped {}
 /// move between threads.
 #[derive(Debug, Clone)]
 pub struct PublisherUntyped {
-    handle: Weak<rcl_publisher_t>,
+    handle: Weak<Publisher_>,
     type_: String,
 }
 
-pub fn make_publisher<T>(handle: Weak<rcl_publisher_t>) -> Publisher<T>
+pub fn make_publisher<T>(handle: Weak<Publisher_>) -> Publisher<T>
 where
     T: WrappedTypesupport,
 {
@@ -72,14 +130,14 @@ where
     }
 }
 
-pub fn make_publisher_untyped(handle: Weak<rcl_publisher_t>, type_: String) -> PublisherUntyped {
+pub fn make_publisher_untyped(handle: Weak<Publisher_>, type_: String) -> PublisherUntyped {
     PublisherUntyped { handle, type_ }
 }
 
 pub fn create_publisher_helper(
     node: &mut rcl_node_t, topic: &str, typesupport: *const rosidl_message_type_support_t,
     qos_profile: QosProfile,
-) -> Result<rcl_publisher_t> {
+) -> Result<Publisher_> {
     let mut publisher_handle = unsafe { rcl_get_zero_initialized_publisher() };
     let topic_c_string = CString::new(topic).map_err(|_| Error::RCL_RET_INVALID_ARGUMENT)?;
 
@@ -95,7 +153,10 @@ pub fn create_publisher_helper(
         )
     };
     if result == RCL_RET_OK as i32 {
-        Ok(publisher_handle)
+        Ok(Publisher_ {
+            handle: publisher_handle,
+            poll_inter_process_subscriber_channels: Mutex::new(Vec::new()),
+        })
     } else {
         Err(Error::from_rcl_error(result))
     }
@@ -115,8 +176,13 @@ impl PublisherUntyped {
         let native_msg = WrappedNativeMsgUntyped::new_from(&self.type_)?;
         native_msg.from_binary(msg);
 
-        let result =
-            unsafe { rcl_publish(publisher.as_ref(), native_msg.void_ptr(), std::ptr::null_mut()) };
+        let result = unsafe {
+            rcl_publish(
+                &publisher.handle as *const rcl_publisher_t,
+                native_msg.void_ptr(),
+                std::ptr::null_mut(),
+            )
+        };
 
         if result == RCL_RET_OK as i32 {
             Ok(())
@@ -124,6 +190,69 @@ impl PublisherUntyped {
             log::error!("could not publish {}", result);
             Err(Error::from_rcl_error(result))
         }
+    }
+
+    /// Publish an pre-serialized ROS message represented by a `&[u8]`.
+    ///
+    /// It is up to the user to make sure data is a valid ROS serialized message.
+    pub fn publish_raw(&self, data: &[u8]) -> Result<()> {
+        // TODO should this be an unsafe function? I'm not sure what happens if the data is malformed ..
+
+        // upgrade to actual ref. if still alive
+        let publisher = self
+            .handle
+            .upgrade()
+            .ok_or(Error::RCL_RET_PUBLISHER_INVALID)?;
+
+        // Safety: Not retained beyond this function
+        let msg_buf = rcl_serialized_message_t {
+            buffer: data.as_ptr() as *mut u8,
+            buffer_length: data.len(),
+            buffer_capacity: data.len(),
+
+            // Since its read only, this should never be used ..
+            allocator: unsafe { rcutils_get_default_allocator() },
+        };
+
+        let result = unsafe {
+            rcl_publish_serialized_message(
+                &publisher.handle,
+                &msg_buf as *const rcl_serialized_message_t,
+                std::ptr::null_mut(),
+            )
+        };
+
+        if result == RCL_RET_OK as i32 {
+            Ok(())
+        } else {
+            log::error!("could not publish {}", result);
+            Err(Error::from_rcl_error(result))
+        }
+    }
+
+    /// Gets the number of external subscribers (i.e. it doesn't
+    /// count subscribers from the same process).
+    pub fn get_inter_process_subscription_count(&self) -> Result<usize> {
+        self.handle
+            .upgrade()
+            .ok_or(Error::RCL_RET_PUBLISHER_INVALID)?
+            .get_inter_process_subscription_count()
+    }
+
+    /// Waits for at least one external subscriber to begin subscribing to the
+    /// topic. It doesn't count subscribers from the same process.
+    pub fn wait_for_inter_process_subscribers(&self) -> Result<impl Future<Output = Result<()>>> {
+        let (sender, receiver) = oneshot::channel();
+
+        self.handle
+            .upgrade()
+            .ok_or(Error::RCL_RET_PUBLISHER_INVALID)?
+            .poll_inter_process_subscriber_channels
+            .lock()
+            .unwrap()
+            .push(sender);
+
+        Ok(receiver.map_err(|_| Error::RCL_RET_CLIENT_INVALID))
     }
 }
 
@@ -142,8 +271,13 @@ where
             .upgrade()
             .ok_or(Error::RCL_RET_PUBLISHER_INVALID)?;
         let native_msg: WrappedNativeMsg<T> = WrappedNativeMsg::<T>::from(msg);
-        let result =
-            unsafe { rcl_publish(publisher.as_ref(), native_msg.void_ptr(), std::ptr::null_mut()) };
+        let result = unsafe {
+            rcl_publish(
+                &publisher.handle as *const rcl_publisher_t,
+                native_msg.void_ptr(),
+                std::ptr::null_mut(),
+            )
+        };
 
         if result == RCL_RET_OK as i32 {
             Ok(())
@@ -163,17 +297,21 @@ where
             .upgrade()
             .ok_or(Error::RCL_RET_PUBLISHER_INVALID)?;
 
-        if unsafe { rcl_publisher_can_loan_messages(publisher.as_ref()) } {
+        if unsafe { rcl_publisher_can_loan_messages(&publisher.handle as *const rcl_publisher_t) } {
             let mut loaned_msg: *mut c_void = std::ptr::null_mut();
             let ret = unsafe {
-                rcl_borrow_loaned_message(publisher.as_ref(), T::get_ts(), &mut loaned_msg)
+                rcl_borrow_loaned_message(
+                    &publisher.handle as *const rcl_publisher_t,
+                    T::get_ts(),
+                    &mut loaned_msg,
+                )
             };
             if ret != RCL_RET_OK as i32 {
                 log::error!("Failed getting loaned message");
                 return Err(Error::from_rcl_error(ret));
             }
 
-            let handle_box = Box::new(*publisher.as_ref());
+            let handle_box = Box::new(publisher.handle);
             let msg = WrappedNativeMsg::<T>::from_loaned(
                 loaned_msg as *mut T::CStruct,
                 Box::new(|msg: *mut T::CStruct| {
@@ -226,13 +364,19 @@ where
 
                 // publish and return loaned message to middleware
                 rcl_publish_loaned_message(
-                    publisher.as_ref(),
+                    &publisher.handle as *const rcl_publisher_t,
                     msg.void_ptr_mut(),
                     std::ptr::null_mut(),
                 )
             }
         } else {
-            unsafe { rcl_publish(publisher.as_ref(), msg.void_ptr(), std::ptr::null_mut()) }
+            unsafe {
+                rcl_publish(
+                    &publisher.handle as *const rcl_publisher_t,
+                    msg.void_ptr(),
+                    std::ptr::null_mut(),
+                )
+            }
         };
 
         if result == RCL_RET_OK as i32 {
@@ -241,5 +385,30 @@ where
             log::error!("could not publish native {}", result);
             Err(Error::from_rcl_error(result))
         }
+    }
+
+    /// Gets the number of external subscribers (i.e. it doesn't
+    /// count subscribers from the same process).
+    pub fn get_inter_process_subscription_count(&self) -> Result<usize> {
+        self.handle
+            .upgrade()
+            .ok_or(Error::RCL_RET_PUBLISHER_INVALID)?
+            .get_inter_process_subscription_count()
+    }
+
+    /// Waits for at least one external subscriber to begin subscribing to the
+    /// topic. It doesn't count subscribers from the same process.
+    pub fn wait_for_inter_process_subscribers(&self) -> Result<impl Future<Output = Result<()>>> {
+        let (sender, receiver) = oneshot::channel();
+
+        self.handle
+            .upgrade()
+            .ok_or(Error::RCL_RET_PUBLISHER_INVALID)?
+            .poll_inter_process_subscriber_channels
+            .lock()
+            .unwrap()
+            .push(sender);
+
+        Ok(receiver.map_err(|_| Error::RCL_RET_CLIENT_INVALID))
     }
 }

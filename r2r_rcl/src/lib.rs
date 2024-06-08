@@ -5,8 +5,7 @@
 #![allow(dead_code)]
 include!(concat!(env!("OUT_DIR"), "/rcl_bindings.rs"));
 
-use std::ffi::CStr;
-use std::ffi::CString;
+use std::ffi::{CStr, CString};
 
 impl Default for rmw_message_info_t {
     fn default() -> Self {
@@ -57,13 +56,18 @@ impl rosidl_runtime_c__U16String__Sequence {
         unsafe {
             rosidl_runtime_c__U16String__Sequence__init(self as *mut _, values.len());
         }
-        let strs = unsafe { std::slice::from_raw_parts_mut(self.data, values.len()) };
-        for (target, source) in strs.iter_mut().zip(values) {
-            target.assign(source);
+        if self.data != std::ptr::null_mut() {
+            let strs = unsafe { std::slice::from_raw_parts_mut(self.data, values.len()) };
+            for (target, source) in strs.iter_mut().zip(values) {
+                target.assign(source);
+            }
         }
     }
 
     pub fn to_vec(&self) -> Vec<String> {
+        if self.data == std::ptr::null_mut() {
+            return Vec::new();
+        }
         let mut target = Vec::with_capacity(self.size);
         let strs = unsafe { std::slice::from_raw_parts(self.data, self.size) };
         for s in strs {
@@ -81,13 +85,18 @@ impl rosidl_runtime_c__String__Sequence {
         unsafe {
             rosidl_runtime_c__String__Sequence__init(self as *mut _, values.len());
         }
-        let strs = unsafe { std::slice::from_raw_parts_mut(self.data, values.len()) };
-        for (target, source) in strs.iter_mut().zip(values) {
-            target.assign(source);
+        if self.data != std::ptr::null_mut() {
+            let strs = unsafe { std::slice::from_raw_parts_mut(self.data, values.len()) };
+            for (target, source) in strs.iter_mut().zip(values) {
+                target.assign(source);
+            }
         }
     }
 
     pub fn to_vec(&self) -> Vec<String> {
+        if self.data == std::ptr::null_mut() {
+            return Vec::new();
+        }
         let mut target = Vec::with_capacity(self.size);
         let strs = unsafe { std::slice::from_raw_parts(self.data, self.size) };
         for s in strs {
@@ -106,10 +115,15 @@ macro_rules! primitive_sequence {
                 pub fn update(&mut self, values: &[$element_type]) {
                     unsafe { [<$ctype __Sequence__fini>] (self as *mut _); }
                     unsafe { [<$ctype __Sequence__init>] (self as *mut _, values.len()); }
-                    unsafe { std::ptr::copy(values.as_ptr(), self.data, values.len()); }
+                    if self.data != std::ptr::null_mut() {
+                        unsafe { std::ptr::copy(values.as_ptr(), self.data, values.len()); }
+                    }
                 }
 
                 pub fn to_vec(&self) -> Vec<$element_type> {
+                    if self.data == std::ptr::null_mut() {
+                        return Vec::new();
+                    }
                     let mut target = Vec::with_capacity(self.size);
                     unsafe {
                         std::ptr::copy(self.data, target.as_mut_ptr(), self.size);
@@ -125,10 +139,18 @@ macro_rules! primitive_sequence {
 primitive_sequence!(rosidl_runtime_c__float32, f32);
 primitive_sequence!(rosidl_runtime_c__float64, f64);
 
-#[cfg(any(all(target_os = "macos", target_arch = "aarch64"), target_arch = "arm"))]
+#[cfg(any(
+    all(target_os = "macos", target_arch = "aarch64"),
+    target_arch = "arm",
+    target_os = "windows"
+))]
 primitive_sequence!(rosidl_runtime_c__long_double, f64);
 
-#[cfg(not(any(all(target_os = "macos", target_arch = "aarch64"), target_arch = "arm")))]
+#[cfg(not(any(
+    all(target_os = "macos", target_arch = "aarch64"),
+    target_arch = "arm",
+    target_os = "windows"
+)))]
 primitive_sequence!(rosidl_runtime_c__long_double, u128);
 
 primitive_sequence!(rosidl_runtime_c__char, i8);

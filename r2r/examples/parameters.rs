@@ -1,6 +1,4 @@
-use futures::executor::LocalPool;
-use futures::prelude::*;
-use futures::task::LocalSpawnExt;
+use futures::{executor::LocalPool, prelude::*, task::LocalSpawnExt};
 
 // try to run like this
 // cargo run --example parameters -- --ros-args -p key1:=[hello,world] -p key2:=5.5 -r __ns:=/demo -r __node:=my_node
@@ -47,7 +45,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         loop {
             println!("node parameters");
             params.lock().unwrap().iter().for_each(|(k, v)| {
-                println!("{} - {:?}", k, v);
+                println!("{} - {:?}", k, v.value);
             });
             let _elapsed = timer.tick().await.expect("could not tick");
         }

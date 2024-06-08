@@ -23,13 +23,11 @@ use {
     std::mem,
 };
 
-use quote::format_ident;
-use quote::quote;
+use quote::{format_ident, quote};
 use r2r_common::RosMsg;
 use r2r_rcl::*;
 
-use std::borrow::Cow;
-use std::ffi::CStr;
+use std::{borrow::Cow, ffi::CStr};
 
 use std::slice;
 
@@ -448,14 +446,16 @@ pub fn generate_rust_msg(module_: &str, prefix_: &str, name_: &str) -> proc_macr
                         quote! {
                             #field_name : {
                                 let mut temp = Vec::with_capacity(msg. #field_name .size);
-                                let slice = unsafe {
-                                    std::slice::from_raw_parts(
-                                        msg. #field_name .data,
-                                        msg. #field_name .size
-                                    )
-                                };
-                                for s in slice {
-                                    temp.push( #module :: #prefix :: #name :: from_native(s));
+                                if msg. #field_name .data != std::ptr::null_mut() {
+                                    let slice = unsafe {
+                                        std::slice::from_raw_parts(
+                                            msg. #field_name .data,
+                                            msg. #field_name .size
+                                        )
+                                    };
+                                    for s in slice {
+                                        temp.push( #module :: #prefix :: #name :: from_native(s));
+                                    }
                                 }
                                 temp
                             },
@@ -591,9 +591,11 @@ pub fn generate_rust_msg(module_: &str, prefix_: &str, name_: &str) -> proc_macr
                                 #fini_func (&mut msg. #field_name);
                                 #init_func (&mut msg. #field_name , self. #field_name .len());
 
-                                let slice = std::slice::from_raw_parts_mut(msg. #field_name .data, msg. #field_name .size);
-                                for (t, s) in slice.iter_mut().zip(&self. #field_name ) {
-                                    s.copy_to_native(t);
+                                if msg. #field_name .data != std::ptr::null_mut() {
+                                    let slice = std::slice::from_raw_parts_mut(msg. #field_name .data, msg. #field_name .size);
+                                    for (t, s) in slice.iter_mut().zip(&self. #field_name ) {
+                                        s.copy_to_native(t);
+                                    }
                                 }
                             }
                         }
@@ -700,10 +702,20 @@ pub fn generate_rust_msg(module_: &str, prefix_: &str, name_: &str) -> proc_macr
         .into_iter()
         .flatten()
         .map(|(const_name, typ)| {
-            let typ: Box<syn::Type> = syn::parse_str(typ).unwrap();
             let const_name = format_ident!("{const_name}");
             let value = format_ident!("{key}__{const_name}");
-            quote! { pub const #const_name: #typ = #value; }
+            if let Ok(mut typ) = syn::parse_str::<Box<syn::TypeReference>>(typ) {
+                // If the constant is a reference, rustc needs it to be static.
+                // (see https://github.com/rust-lang/rust/issues/115010)
+                typ.lifetime = Some(syn::Lifetime::new("'static", proc_macro2::Span::call_site()));
+                quote! { pub const #const_name: #typ = #value; }
+            } else if let Ok(typ) = syn::parse_str::<Box<syn::Type>>(typ) {
+                // Value
+                quote! { pub const #const_name: #typ = #value; }
+            } else {
+                // Something else, hope for the best but will most likely fail to compile.
+                quote! { pub const #const_name: #typ = #value; }
+            }
         })
         .collect();
 

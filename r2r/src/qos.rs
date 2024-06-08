@@ -233,11 +233,26 @@ impl From<HistoryPolicy> for rmw_qos_history_policy_t {
     }
 }
 
+impl From<rmw_qos_history_policy_t> for HistoryPolicy {
+    fn from(rmw_history_policy: rmw_qos_history_policy_t) -> Self {
+        match rmw_history_policy {
+            rmw_qos_history_policy_t::RMW_QOS_POLICY_HISTORY_KEEP_ALL => HistoryPolicy::KeepAll,
+            rmw_qos_history_policy_t::RMW_QOS_POLICY_HISTORY_KEEP_LAST => HistoryPolicy::KeepLast,
+            rmw_qos_history_policy_t::RMW_QOS_POLICY_HISTORY_SYSTEM_DEFAULT => {
+                HistoryPolicy::SystemDefault
+            }
+            rmw_qos_history_policy_t::RMW_QOS_POLICY_HISTORY_UNKNOWN => HistoryPolicy::Unknown,
+        }
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum ReliabilityPolicy {
     BestEffort,
     Reliable,
     SystemDefault,
+    #[cfg(any(r2r__ros__distro__iron, r2r__ros__distro__rolling))]
+    BestAvailable,
     Unknown,
 }
 impl From<ReliabilityPolicy> for rmw_qos_reliability_policy_t {
@@ -252,8 +267,35 @@ impl From<ReliabilityPolicy> for rmw_qos_reliability_policy_t {
             ReliabilityPolicy::SystemDefault => {
                 rmw_qos_reliability_policy_t::RMW_QOS_POLICY_RELIABILITY_SYSTEM_DEFAULT
             }
+            #[cfg(any(r2r__ros__distro__iron, r2r__ros__distro__rolling))]
+            ReliabilityPolicy::BestAvailable => {
+                rmw_qos_reliability_policy_t::RMW_QOS_POLICY_RELIABILITY_BEST_AVAILABLE
+            }
             ReliabilityPolicy::Unknown => {
                 rmw_qos_reliability_policy_t::RMW_QOS_POLICY_RELIABILITY_UNKNOWN
+            }
+        }
+    }
+}
+
+impl From<rmw_qos_reliability_policy_t> for ReliabilityPolicy {
+    fn from(rmw_reliability_policy: rmw_qos_reliability_policy_t) -> Self {
+        match rmw_reliability_policy {
+            rmw_qos_reliability_policy_t::RMW_QOS_POLICY_RELIABILITY_BEST_EFFORT => {
+                ReliabilityPolicy::BestEffort
+            }
+            rmw_qos_reliability_policy_t::RMW_QOS_POLICY_RELIABILITY_RELIABLE => {
+                ReliabilityPolicy::Reliable
+            }
+            rmw_qos_reliability_policy_t::RMW_QOS_POLICY_RELIABILITY_SYSTEM_DEFAULT => {
+                ReliabilityPolicy::SystemDefault
+            }
+            #[cfg(any(r2r__ros__distro__iron, r2r__ros__distro__rolling))]
+            rmw_qos_reliability_policy_t::RMW_QOS_POLICY_RELIABILITY_BEST_AVAILABLE => {
+                ReliabilityPolicy::BestAvailable
+            }
+            rmw_qos_reliability_policy_t::RMW_QOS_POLICY_RELIABILITY_UNKNOWN => {
+                ReliabilityPolicy::Unknown
             }
         }
     }
@@ -264,6 +306,8 @@ pub enum DurabilityPolicy {
     TransientLocal,
     Volatile,
     SystemDefault,
+    #[cfg(any(r2r__ros__distro__iron, r2r__ros__distro__rolling))]
+    BestAvailable,
     Unknown,
 }
 
@@ -279,8 +323,35 @@ impl From<DurabilityPolicy> for rmw_qos_durability_policy_t {
             DurabilityPolicy::SystemDefault => {
                 rmw_qos_durability_policy_t::RMW_QOS_POLICY_DURABILITY_SYSTEM_DEFAULT
             }
+            #[cfg(any(r2r__ros__distro__iron, r2r__ros__distro__rolling))]
+            DurabilityPolicy::BestAvailable => {
+                rmw_qos_durability_policy_t::RMW_QOS_POLICY_DURABILITY_BEST_AVAILABLE
+            }
             DurabilityPolicy::Unknown => {
                 rmw_qos_durability_policy_t::RMW_QOS_POLICY_DURABILITY_UNKNOWN
+            }
+        }
+    }
+}
+
+impl From<rmw_qos_durability_policy_t> for DurabilityPolicy {
+    fn from(rmw_durability_policy: rmw_qos_durability_policy_t) -> Self {
+        match rmw_durability_policy {
+            rmw_qos_durability_policy_t::RMW_QOS_POLICY_DURABILITY_TRANSIENT_LOCAL => {
+                DurabilityPolicy::TransientLocal
+            }
+            rmw_qos_durability_policy_t::RMW_QOS_POLICY_DURABILITY_VOLATILE => {
+                DurabilityPolicy::Volatile
+            }
+            rmw_qos_durability_policy_t::RMW_QOS_POLICY_DURABILITY_SYSTEM_DEFAULT => {
+                DurabilityPolicy::SystemDefault
+            }
+            #[cfg(any(r2r__ros__distro__iron, r2r__ros__distro__rolling))]
+            rmw_qos_durability_policy_t::RMW_QOS_POLICY_DURABILITY_BEST_AVAILABLE => {
+                DurabilityPolicy::BestAvailable
+            }
+            rmw_qos_durability_policy_t::RMW_QOS_POLICY_DURABILITY_UNKNOWN => {
+                DurabilityPolicy::Unknown
             }
         }
     }
@@ -292,6 +363,8 @@ pub enum LivelinessPolicy {
     ManualByNode,
     ManualByTopic,
     SystemDefault,
+    #[cfg(any(r2r__ros__distro__iron, r2r__ros__distro__rolling))]
+    BestAvailable,
     Unknown,
 }
 
@@ -310,8 +383,38 @@ impl From<LivelinessPolicy> for rmw_qos_liveliness_policy_t {
             LivelinessPolicy::SystemDefault => {
                 rmw_qos_liveliness_policy_t::RMW_QOS_POLICY_LIVELINESS_SYSTEM_DEFAULT
             }
+            #[cfg(any(r2r__ros__distro__iron, r2r__ros__distro__rolling))]
+            LivelinessPolicy::BestAvailable => {
+                rmw_qos_liveliness_policy_t::RMW_QOS_POLICY_LIVELINESS_BEST_AVAILABLE
+            }
             LivelinessPolicy::Unknown => {
                 rmw_qos_liveliness_policy_t::RMW_QOS_POLICY_LIVELINESS_UNKNOWN
+            }
+        }
+    }
+}
+
+impl From<rmw_qos_liveliness_policy_t> for LivelinessPolicy {
+    fn from(rmw_liveliness_policy: rmw_qos_liveliness_policy_t) -> Self {
+        match rmw_liveliness_policy {
+            rmw_qos_liveliness_policy_t::RMW_QOS_POLICY_LIVELINESS_AUTOMATIC => {
+                LivelinessPolicy::Automatic
+            }
+            rmw_qos_liveliness_policy_t::RMW_QOS_POLICY_LIVELINESS_MANUAL_BY_NODE => {
+                LivelinessPolicy::ManualByNode
+            }
+            rmw_qos_liveliness_policy_t::RMW_QOS_POLICY_LIVELINESS_MANUAL_BY_TOPIC => {
+                LivelinessPolicy::ManualByTopic
+            }
+            rmw_qos_liveliness_policy_t::RMW_QOS_POLICY_LIVELINESS_SYSTEM_DEFAULT => {
+                LivelinessPolicy::SystemDefault
+            }
+            #[cfg(any(r2r__ros__distro__iron, r2r__ros__distro__rolling))]
+            rmw_qos_liveliness_policy_t::RMW_QOS_POLICY_LIVELINESS_BEST_AVAILABLE => {
+                LivelinessPolicy::BestAvailable
+            }
+            rmw_qos_liveliness_policy_t::RMW_QOS_POLICY_LIVELINESS_UNKNOWN => {
+                LivelinessPolicy::Unknown
             }
         }
     }
@@ -719,8 +822,28 @@ impl From<QosProfile> for r2r_rcl::rmw_qos_profile_t {
         }
     }
 }
+
+impl From<r2r_rcl::rmw_qos_profile_t> for QosProfile {
+    fn from(rmw_qos: r2r_rcl::rmw_qos_profile_t) -> Self {
+        QosProfile {
+            history: rmw_qos.history.into(),
+            depth: rmw_qos.depth,
+            reliability: rmw_qos.reliability.into(),
+            durability: rmw_qos.durability.into(),
+            deadline: Duration::from_rmw_time_t(&rmw_qos.deadline),
+            lifespan: Duration::from_rmw_time_t(&rmw_qos.lifespan),
+            liveliness: rmw_qos.liveliness.into(),
+            liveliness_lease_duration: Duration::from_rmw_time_t(
+                &rmw_qos.liveliness_lease_duration,
+            ),
+            avoid_ros_namespace_conventions: rmw_qos.avoid_ros_namespace_conventions,
+        }
+    }
+}
+
 pub(crate) trait RclDurationT {
     fn to_rmw_time_t(&self) -> rmw_time_t;
+    fn from_rmw_time_t(rmw_time: &rmw_time_t) -> Self;
 }
 
 impl RclDurationT for Duration {
@@ -729,5 +852,29 @@ impl RclDurationT for Duration {
             sec: self.as_secs(),
             nsec: self.subsec_nanos().into(),
         }
+    }
+
+    fn from_rmw_time_t(rmw_time: &rmw_time_t) -> Self {
+        #[cfg(not(r2r__ros__distro__foxy))]
+        {
+            assert!(
+                rmw_time.nsec < 1_000_000_000,
+                "nsec part of rmw_time_t should be less than 1 billion"
+            );
+        }
+
+        #[cfg(r2r__ros__distro__foxy)]
+        {
+            // FIXME: In foxy, duration data obtained from publisher with default qos profile is
+            // sec: 7FFFFFFF (2147483647), nsec: FFFFFFFF (4294967295)
+            if rmw_time.nsec == 4294967295 {
+                // 0s indicates deadline policies are not tracked or enforced in foxy
+                return Duration::new(0, 0);
+            } else if rmw_time.nsec > 1_000_000_000 {
+                panic!("nsec part of rmw_time_t should be less than 1 billion");
+            }
+        }
+
+        Duration::new(rmw_time.sec, rmw_time.nsec as u32)
     }
 }

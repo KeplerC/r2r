@@ -1,12 +1,9 @@
 use futures::channel::mpsc;
 use std::ffi::CString;
 
-use crate::error::*;
-use crate::msg_types::*;
-use crate::qos::QosProfile;
+use crate::{error::*, msg_types::*, qos::QosProfile};
 use r2r_rcl::*;
-use std::ffi::c_void;
-use std::ffi::CStr;
+use std::ffi::{c_void, CStr};
 
 pub trait Subscriber_ {
     fn handle(&self) -> &rcl_subscription_t;
@@ -34,6 +31,12 @@ where
 pub struct UntypedSubscriber {
     pub rcl_handle: rcl_subscription_t,
     pub topic_type: String,
+    pub sender: mpsc::Sender<Vec<u8>>,
+}
+
+pub struct RawSubscriber {
+    pub rcl_handle: rcl_subscription_t,
+    pub msg_buf: rcl_serialized_message_t,
     pub sender: mpsc::Sender<Vec<u8>>,
 }
 
@@ -98,7 +101,6 @@ where
                     let handle_ptr = Box::into_raw(handle_box);
                     let ret =
                         rcl_return_loaned_message_from_subscription(handle_ptr, msg as *mut c_void);
-                    drop(Box::from_raw(handle_ptr));
                     if ret != RCL_RET_OK as i32 {
                         let err_str = rcutils_get_error_string();
                         let err_str_ptr = &(err_str.str_) as *const std::os::raw::c_char;
@@ -107,13 +109,15 @@ where
                         let topic_str = rcl_subscription_get_topic_name(handle_ptr);
                         let topic = CStr::from_ptr(topic_str);
 
-                        panic!(
+                        crate::log_error!(
+                            "r2r",
                             "rcl_return_loaned_message_from_subscription() \
                             failed for subscription on topic {}: {}",
                             topic.to_str().expect("to_str() call failed"),
                             error_msg.to_str().expect("to_str() call failed")
                         );
                     }
+                    // drop(Box::from_raw(handle_ptr));
                 });
                 WrappedNativeMsg::<T>::from_loaned(loaned_msg as *mut T::CStruct, deallocator)
             } else {
@@ -175,6 +179,53 @@ impl Subscriber_ for UntypedSubscriber {
     fn destroy(&mut self, node: &mut rcl_node_t) {
         unsafe {
             rcl_subscription_fini(&mut self.rcl_handle, node);
+        }
+    }
+}
+
+impl Subscriber_ for RawSubscriber {
+    fn handle(&self) -> &rcl_subscription_t {
+        &self.rcl_handle
+    }
+
+    fn handle_incoming(&mut self) -> bool {
+        let mut msg_info = rmw_message_info_t::default(); // we dont care for now
+        let ret = unsafe {
+            rcl_take_serialized_message(
+                &self.rcl_handle,
+                &mut self.msg_buf as *mut rcl_serialized_message_t,
+                &mut msg_info,
+                std::ptr::null_mut(),
+            )
+        };
+        if ret != RCL_RET_OK as i32 {
+            log::error!("failed to take serialized message");
+            return false;
+        }
+
+        let data_bytes = if self.msg_buf.buffer == std::ptr::null_mut() {
+            Vec::new()
+        } else {
+            unsafe {
+                std::slice::from_raw_parts(self.msg_buf.buffer, self.msg_buf.buffer_length).to_vec()
+            }
+        };
+
+        if let Err(e) = self.sender.try_send(data_bytes) {
+            if e.is_disconnected() {
+                // user dropped the handle to the stream, signal removal.
+                return true;
+            }
+            log::debug!("error {:?}", e)
+        }
+
+        false
+    }
+
+    fn destroy(&mut self, node: &mut rcl_node_t) {
+        unsafe {
+            rcl_subscription_fini(&mut self.rcl_handle, node);
+            rcutils_uint8_array_fini(&mut self.msg_buf as *mut rcl_serialized_message_t);
         }
     }
 }

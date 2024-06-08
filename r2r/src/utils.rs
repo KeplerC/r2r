@@ -1,6 +1,11 @@
 use r2r_rcl::*;
-use std::ffi::CString;
-use std::sync::{Mutex, MutexGuard};
+use std::{
+    ffi::CString,
+    sync::{
+        atomic::{AtomicBool, Ordering},
+        Mutex, MutexGuard,
+    },
+};
 
 use lazy_static::lazy_static;
 
@@ -12,12 +17,24 @@ pub(crate) fn log_guard() -> MutexGuard<'static, ()> {
     LOG_GUARD.lock().unwrap()
 }
 
+// for some hidden reason g_rcutils_logging_initialized
+// is not found on windows even when rcutils.lib is linked
+// as a work around using onwned is_init
+static IS_INIT: AtomicBool = AtomicBool::new(false);
+
 /// Don't call this directly, use the logging macros instead.
 #[doc(hidden)]
 pub fn log(msg: &str, logger_name: &str, file: &str, line: u32, severity: LogSeverity) {
     let _guard = log_guard();
-    let is_init = unsafe { g_rcutils_logging_initialized };
+    let is_init = if cfg!(target_os = "windows") {
+        IS_INIT.load(Ordering::Relaxed)
+    } else {
+        unsafe { g_rcutils_logging_initialized }
+    };
     if !is_init {
+        if cfg!(target_os = "windows") {
+            IS_INIT.store(true, Ordering::Relaxed);
+        }
         let ret = unsafe { rcutils_logging_initialize() };
         if ret != RCL_RET_OK as i32 {
             log::error!("could not create logging system (Err: {})", ret);
@@ -124,6 +141,22 @@ macro_rules! log_fatal {
         $crate::__impl_log!($logger_name, format_args!($($args)*),
                             file!(), line!(), $crate::LogSeverity::Fatal)
     }}
+}
+
+/// Causes compile time error if `use_sim_time` is unsupported.
+#[cfg(r2r__rosgraph_msgs__msg__Clock)]
+#[macro_export]
+macro_rules! assert_compiled_with_use_sim_time_support {
+    () => {};
+}
+
+/// Causes compile time error if `use_sim_time` is unsupported.
+#[cfg(not(r2r__rosgraph_msgs__msg__Clock))]
+#[macro_export]
+macro_rules! assert_compiled_with_use_sim_time_support {
+    () => {
+        compile_error!("assert_compiled_with_use_sim_time_support failed: 'rosgraph_msgs' dependency is missing!");
+    };
 }
 
 #[test]
