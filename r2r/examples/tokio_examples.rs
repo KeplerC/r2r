@@ -99,7 +99,7 @@ async fn service(arc_node: Arc<Mutex<r2r::Node>>) -> Result<(), r2r::Error> {
     let mut service = {
         // Limiting the scope when locking the arc
         let mut node = arc_node.lock().unwrap();
-        node.create_service_untyped("/add_two_ints", "example_interfaces/srv/AddTwoInts")?
+        node.create_service_untyped("/add_two_ints", "example_interfaces/srv/AddTwoInts", QosProfile::default())?
     };
     println!("service available.");
     loop {

@@ -674,7 +674,7 @@ impl Node {
             qos_profile,
         )?;
         let (sender, receiver) = mpsc::channel::<ServiceRequest<T>>(10);
-        
+
         let ws = TypedService::<T>{
             rcl_handle: service_handle,
             outstanding_requests: vec![],
@@ -691,12 +691,13 @@ impl Node {
     /// `respond` on the Service Request to send the reply.
     pub fn create_service_untyped(
         &mut self, service_name: &str, service_type: &str,
+        qos_profile: QosProfile,
     ) -> Result<impl Stream<Item = UntypedServiceRequest> + Unpin>
     {
         println!("create_service_untyped");
         let service_type_support = UntypedServiceSupport::new_from(service_type).unwrap();
         let service_handle =
-            create_service_helper(self.node_handle.as_mut(), service_name, service_type_support.ts)?;
+            create_service_helper(self.node_handle.as_mut(), service_name, service_type_support.ts, qos_profile)?;
         let (sender, receiver) = mpsc::channel::<UntypedServiceRequest>(100);
 
         println!("create_service_untyped");
