@@ -142,12 +142,12 @@ pub fn print_cargo_ros_distro() {
     }
 
     if env::var("ROS_DISTRO").is_err() {
-        // panic!("ROS_DISTRO not set, source ROS2!");
+        println!("ROS_DISTRO not set, source ROS2!");
         Command::new("source")
                 .arg("/opt/ros/humble/setup.bash")
                 .status().expect("Failed to source ROS2!");
     }
-    
+
     let ros_distro =
         env::var("ROS_DISTRO").unwrap_or_else(|_| panic!("ROS_DISTRO not set: Source your ROS!"));
 
