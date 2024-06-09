@@ -44,6 +44,13 @@ pub fn print_cargo_watches() {
 }
 
 pub fn setup_bindgen_builder() -> bindgen::Builder {
+    if env::var("ROS_DISTRO").is_err() {
+        println!("ROS_DISTRO not set, source ROS2 from humble");
+        Command::new("source")
+                .arg("/opt/ros/humble/setup.bash")
+                .status().expect("Failed to source ROS2!");
+    }
+
     let mut builder = bindgen::Builder::default()
         .layout_tests(false)
         .derive_copy(false)
@@ -142,7 +149,7 @@ pub fn print_cargo_ros_distro() {
     }
 
     if env::var("ROS_DISTRO").is_err() {
-        println!("ROS_DISTRO not set, source ROS2!");
+        println!("ROS_DISTRO not set, source ROS2 from humble!");
         Command::new("source")
                 .arg("/opt/ros/humble/setup.bash")
                 .status().expect("Failed to source ROS2!");
